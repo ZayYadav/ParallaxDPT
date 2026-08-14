@@ -1,0 +1,50 @@
+name: Create release
+
+on:
+  push:
+    # Sequence of patterns matched against refs/tags
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: set up JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+        cache-dependency-path: ParallaxShell/**/*.gradle*
+    - name: Install ninja
+      run: sudo apt-get update && sudo apt-get install ninja-build
+    - name: Set up Android SDK
+      uses: android-actions/setup-android@v3
+    - name: Setup CMake
+      uses: jwlawson/actions-setup-cmake@v1
+      with:
+       cmake-version: '3.31.1'
+    - name: Grant execute permission for gradlew
+      run: chmod +x ParallaxShell/gradlew
+    - name: Building project
+      run: ./gradlew --no-daemon --stacktrace build
+      working-directory: ParallaxShell
+    - name: Get latest tag name
+      id: get_latest_tag_name
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+    - name: Compress files
+      run: |
+        find ParallaxShell/executable -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > ParallaxShell/executable/SHA256SUMS
+        sha256sum --check ParallaxShell/executable/SHA256SUMS
+        zip -r -q parallax-shell-${{ steps.get_latest_tag_name.outputs.VERSION }}.zip ParallaxShell/executable/
+    - uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        prerelease: false
+        files: |
+          parallax-shell-${{ steps.get_latest_tag_name.outputs.VERSION }}.zip
