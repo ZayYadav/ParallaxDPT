@@ -1,5 +1,5 @@
 //
-// Created by luoyesiqiu
+// Created by parallax
 //
 
 #include "java_lang_Class.h"

@@ -1,5 +1,5 @@
 //
-// Created by luoyesiqiu on 2025/11/26.
+// Created by parallax on 2025/11/26.
 //
 
 #include "parallax_crypto.h"

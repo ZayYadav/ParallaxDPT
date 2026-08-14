@@ -1,5 +1,5 @@
 //
-// Created by luoyesiqiu
+// Created by parallax
 //
 
 #include "android_content_pm_ApplicationInfo.h"

@@ -1,5 +1,5 @@
 //
-// Created by luoyesiqiu on 2025/11/26.
+// Created by parallax on 2025/11/26.
 //
 
 #ifndef PARALLAX_PARALLAX_CRYPTO_H

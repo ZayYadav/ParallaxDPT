@@ -1,5 +1,5 @@
 //
-// Created by luoyesiqiu
+// Created by parallax
 //
 
 #ifndef PARALLAX_ANDROID_CONTENT_PM_APPLICATIONINFO_H

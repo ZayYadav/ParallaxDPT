@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace 'com.luoye.parallax'
+    namespace 'com.parallax.parallax'
     compileSdk rootProject.ext.compileSdkVersion
 
     buildFeatures {
@@ -16,7 +16,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.luoye.parallax"
+        applicationId "com.parallax.parallax"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode rootProject.ext.appVersionCode

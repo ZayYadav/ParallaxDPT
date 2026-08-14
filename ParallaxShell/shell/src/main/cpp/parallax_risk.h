@@ -1,5 +1,5 @@
 //
-// Created by luoyesiqiu
+// Created by parallax
 //
 
 #ifndef PARALLAX_PARALLAX_RISK_H

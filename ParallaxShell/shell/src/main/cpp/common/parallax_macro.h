@@ -1,5 +1,5 @@
 //
-// Created by luoyesiqiu
+// Created by parallax
 //
 
 #ifndef PARALLAX_PARALLAX_MACRO_H
@@ -30,7 +30,7 @@ inline int get_cache_page_size() {
 #define SHELL_CONFIG_IN_ZIP "assets/d_shell_data_001"
 #define CODE_ITEM_NAME_IN_ZIP "assets/OoooooOooo"
 #define COMBINE_DEX_FILES_NAME_IN_ZIP "classes.dex"
-#define JUNK_CLASS_FULL_NAME "com/luoye/parallax/junkcode/JunkClass"
+#define JUNK_CLASS_FULL_NAME "com/parallax/parallax/junkcode/JunkClass"
 
 #define PARALLAX_PAGE_MASK (~((get_cache_page_size()) - 1))
 

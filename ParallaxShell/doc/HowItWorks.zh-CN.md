@@ -491,7 +491,7 @@ AppComponentFactory支持开发者对Application,Activity,Service,Receiver,Provi
 
 parallax在AppComponentFactory类的instantiateClassLoader和instantiateApplication函数中做了替换ClassLoader和Application的操作。
 
-具体可以看[ProxyComponentFactory](https://github.com/luoyesiqiu/parallax-shell/blob/main/shell/src/main/java/com/luoyesiqiu/shell/ProxyComponentFactory.java)类，这里不再贴出。
+具体可以看[ProxyComponentFactory](https://github.com/parallax/parallax-shell/blob/main/shell/src/main/java/com/parallax/shell/ProxyComponentFactory.java)类，这里不再贴出。
 
 ### (5) 性能优化
 

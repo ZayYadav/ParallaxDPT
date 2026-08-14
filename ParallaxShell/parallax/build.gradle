@@ -16,7 +16,7 @@ jar {
     archiveVersion = appVersionName
     archiveFileName.set("parallax.jar")
     manifest {
-        attributes 'Main-Class': 'com.luoye.parallax.Parallax'
+        attributes 'Main-Class': 'com.parallax.parallax.Parallax'
     }
     destinationDirectory = new File("$rootProject.projectDir/executable")
     // Collect files

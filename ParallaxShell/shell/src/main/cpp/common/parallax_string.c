@@ -1,5 +1,5 @@
 //
-// Created by luoyesiqiu on 2024/9/7.
+// Created by parallax on 2024/9/7.
 //
 
 #include "parallax_string.h"
