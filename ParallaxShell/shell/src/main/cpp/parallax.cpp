@@ -434,9 +434,9 @@ int getRandom(int l, int r) {
 }
 
 PARALLAX_ENCRYPT void clinit(JNIEnv *env, jclass) {
-    int rand = getRandom(1, 100);
-    if(rand % 2 == 0) {
-        veritySignature(env);
+    veritySignature(env);
+    if ((g_shell_config.risk_check_flags & FLAG_DISABLE_ANTI_DEBUG) == 0) {
+        detectJavaDebugger(env);
     }
 }
 
@@ -545,6 +545,11 @@ PARALLAX_ENCRYPT static bool registerNativeMethods(JNIEnv *env) {
 PARALLAX_ENCRYPT void init_app(JNIEnv *env, jclass __unused) {
     DLOGD("called!");
     clock_t start = clock();
+
+    veritySignature(env);
+    if ((g_shell_config.risk_check_flags & FLAG_DISABLE_ANTI_DEBUG) == 0) {
+        detectJavaDebugger(env);
+    }
 
     void *package_addr = nullptr;
     size_t package_size = 0;
@@ -763,6 +768,10 @@ PARALLAX_ENCRYPT JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
     }
 
     read_shell_config(env);
+
+    if ((g_shell_config.risk_check_flags & FLAG_DISABLE_ANTI_DEBUG) == 0) {
+        detectJavaDebugger(env);
+    }
 
     antiRisk();
 

@@ -39,6 +39,17 @@ jobs:
     - name: Building project
       run: ./gradlew --no-daemon --stacktrace build
       working-directory: ParallaxShell
+    - name: Verify Parallax native library hardening
+      run: |
+        mapfile -t libraries < <(find ParallaxShell/executable/shell-files/libs -type f -name '*.so' | sort)
+        test "${#libraries[@]}" -eq 4
+        for library in "${libraries[@]}"; do
+          test "$(basename "$library")" = "libParallax.so"
+          readelf -lW "$library" | grep -q 'GNU_RELRO'
+          readelf -dW "$library" | grep -q '(BIND_NOW)'
+          ! readelf -lW "$library" | grep 'GNU_STACK' | grep -q 'RWE'
+          ! readelf -nW "$library" | grep -q 'Build ID'
+        done
     - name: Get latest tag name
       id: get_latest_tag_name
       run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"

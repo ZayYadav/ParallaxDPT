@@ -73,9 +73,9 @@ if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
     message(WARNING "!!!WARNNING:opened log!!!")
 else()
     set(OPTIMIZATION_LEVEL "-Oz")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden ${OPTIMIZATION_LEVEL}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden ${OPTIMIZATION_LEVEL}")
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--exclude-libs,ALL")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden -ffunction-sections -fdata-sections -fno-ident -D_FORTIFY_SOURCE=2 ${OPTIMIZATION_LEVEL}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden -ffunction-sections -fdata-sections -fno-ident -D_FORTIFY_SOURCE=2 ${OPTIMIZATION_LEVEL}")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--exclude-libs,ALL -Wl,--gc-sections -Wl,--strip-all -Wl,--build-id=none")
     message("closed log & stripped so symbols")
 endif()
 
@@ -108,6 +108,7 @@ target_compile_options(${SO_NAME} PRIVATE
 target_link_options(${SO_NAME} PRIVATE
         "-Wl,-z,max-page-size=16384"
         "-Wl,-z,relro,-z,now"
+        "-Wl,-z,noexecstack"
         "-Wl,--no-undefined"
 )
 

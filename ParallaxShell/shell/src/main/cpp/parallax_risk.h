@@ -22,13 +22,15 @@
 #include "linux_syscall_support.h"
 #include "common/obfuscate.h"
 
-void parallax_crash();
+[[noreturn]] void parallax_crash();
 void detectFrida();
 void detectDebugger();
+void detectJavaDebugger(JNIEnv *env);
 void detectRisk();
 void junkCodeDexProtect(JNIEnv *env);
 void verifyAppSignature(JNIEnv *env, jobject context, const char *expectedSha256);
 void verifyLibcTextCrc();
+void verifyRuntimeIntegrity();
 void hardenProcessAgainstDumping();
 
 #endif //PARALLAX_PARALLAX_RISK_H
