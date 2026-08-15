@@ -1,0 +1,48 @@
+name: Parallax build and integrity checks
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+          cache-dependency-path: ParallaxShell/**/*.gradle*
+
+      - name: Install ninja
+        run: sudo apt-get update && sudo apt-get install ninja-build
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android build packages
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
+      - name: Fetch native dependencies
+        run: ./scripts/bootstrap-native-deps.sh
+      - name: Grant execute permission for gradlew
+        run: chmod +x ParallaxShell/gradlew
+      - name: Run Parallax CLI unit tests
+        run: ./gradlew --no-daemon --stacktrace -PparallaxCliOnly :parallax:test
+        working-directory: ParallaxShell
+      - name: Building project
+        run: ./gradlew --no-daemon --stacktrace build
+        working-directory: ParallaxShell
+      - name: Generate SHA-256 checksums
+        run: |
+          find ParallaxShell/executable -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > ParallaxShell/executable/SHA256SUMS
+          sha256sum --check ParallaxShell/executable/SHA256SUMS
+      - name: Upload Parallax artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: parallax-${{ github.sha }}
+          path: ParallaxShell/executable/
