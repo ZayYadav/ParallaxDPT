@@ -1,0 +1,66 @@
+import java.security.SecureRandom
+
+plugins {
+    id 'com.android.application' version '8.10.0' apply false
+}
+
+static def generateHexString() {
+    def secureRandom = new SecureRandom()
+    return Long.toHexString(secureRandom.nextLong())
+}
+
+// Persist soName/parallaxBuildKey across Gradle invocations so parallax.jar and shell SO stay in sync.
+// Stored under the root build/ directory; clean deletes it so the next build regenerates.
+def parallaxBuildIdsFile = file("${rootDir}/build/parallax-build-ids.properties")
+def parallaxBuildIds = new Properties()
+if (parallaxBuildIdsFile.exists()) {
+    parallaxBuildIdsFile.withInputStream { parallaxBuildIds.load(it) }
+}
+def resolvedSoName = parallaxBuildIds.getProperty("soName")
+def resolvedBuildKey = parallaxBuildIds.getProperty("parallaxBuildKey")
+if (!resolvedSoName || resolvedSoName.isEmpty() || !resolvedBuildKey || resolvedBuildKey.isEmpty()) {
+    resolvedSoName = generateHexString()
+    resolvedBuildKey = generateHexString()
+    parallaxBuildIds.setProperty("soName", resolvedSoName)
+    parallaxBuildIds.setProperty("parallaxBuildKey", resolvedBuildKey)
+    parallaxBuildIdsFile.parentFile.mkdirs()
+    parallaxBuildIdsFile.withOutputStream { parallaxBuildIds.store(it, "parallax-shell build ids. Delete to regenerate.") }
+}
+
+ext {
+    soName = resolvedSoName
+    fullSoName = "lib${soName}.so"
+    shellPackageName = generateHexString()
+    parallaxBuildKey = resolvedBuildKey
+
+    // Android SDK versions
+    compileSdkVersion = 36
+    minSdkVersion = 21
+    targetSdkVersion = 36
+
+    // App version
+    appVersionCode = 1
+    appVersionName = "2.18.0"
+
+    // Java compatibility
+    shellJavaVersion = JavaVersion.VERSION_1_8
+    parallaxJavaVersion = JavaVersion.VERSION_11
+
+    // CMake
+    cmakeVersion = "3.22.1"
+    ndkVersion = "27.0.12077973"
+
+}
+
+subprojects { sub ->
+    sub.afterEvaluate {
+        sub.tasks.matching { it.name == 'clean' }.configureEach { task ->
+            task.doFirst {
+                if (parallaxBuildIdsFile.exists()) {
+                    parallaxBuildIdsFile.delete()
+                    println("Deleted ${parallaxBuildIdsFile}")
+                }
+            }
+        }
+    }
+}

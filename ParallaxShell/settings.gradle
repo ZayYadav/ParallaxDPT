@@ -1,0 +1,28 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+    versionCatalogs {
+        libs {
+            library('commons-io', 'org.apache.commons', 'commons-io').version('1.3.2')
+        }
+    }
+}
+
+rootProject.name = "parallax"
+include ':parallax'
+// Allows CLI/unit tests to run on machines without an Android SDK. CI and normal
+// builds do not set this property and therefore always include the shell module.
+if (!providers.gradleProperty("parallaxCliOnly").isPresent()) {
+    include ':shell'
+}
