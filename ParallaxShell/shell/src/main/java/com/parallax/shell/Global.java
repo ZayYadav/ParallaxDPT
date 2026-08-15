@@ -9,7 +9,7 @@ import com.parallax.parallax.BuildConfig;
  */
 public class Global {
     public static final String APACHE_HTTP_LIB = "/system/framework/org.apache.http.legacy.jar";
-    public static final String ZIP_LIB_DIR = "vwwwwwvwww";
+    public static final String ZIP_LIB_DIR = "Parallax";
     public static final String LIB_DIR = "parallax-libs";
     public static final String SHELL_SO_NAME = BuildConfig.SO_NAME;
     @Keep

@@ -343,7 +343,8 @@ void decrypt_section(const char* section_name, int temp_prot, int target_prot) {
     Elf_Off offset = shdr.sh_offset;
     Elf_Word size = shdr.sh_size;
 
-    DLOGD("section name: %s, offset: %p, size: %d", section_name, (uint8_t *)offset, size);
+    DLOGD("section name: %s, offset: %zu, size: %zu", section_name,
+          static_cast<size_t>(offset), static_cast<size_t>(size));
     void *target = (u_char *)info.dli_fbase + offset;
 
     int ret = parallax_mprotect(target, (void *)((uint8_t *)target + size), temp_prot);
@@ -351,15 +352,25 @@ void decrypt_section(const char* section_name, int temp_prot, int target_prot) {
         abort();
     }
 
-    u_char *bitcode = (u_char *)malloc(size);
-    struct rc4_state dec_state;
-    rc4_init(&dec_state, reinterpret_cast<const u_char *>(PARALLAX_UNKNOWN_DATA), 16);
-    rc4_crypt(&dec_state, reinterpret_cast<const u_char *>(target),
-              reinterpret_cast<u_char *>(bitcode),
-              size);
-
-    memcpy(target,bitcode,size);
-    PARALLAX_FREE(bitcode);
+    const std::string counter_material = std::string("Parallax/section/") + section_name;
+    auto counter = hmac_sha256(PARALLAX_UNKNOWN_DATA, 16,
+                               reinterpret_cast<const uint8_t *>(counter_material.data()),
+                               counter_material.size());
+    if (counter.size() != 32) abort();
+    auto bitcode = aes_ctr_crypt(PARALLAX_UNKNOWN_DATA, counter.data(),
+                                 reinterpret_cast<const uint8_t *>(target), size);
+    if (bitcode.size() != size) abort();
+    memcpy(target, bitcode.data(), size);
+    secure_zero(bitcode.data(), bitcode.size());
+    secure_zero(counter.data(), counter.size());
+    const long page_size = sysconf(_SC_PAGESIZE);
+    if (page_size > 0) {
+        const uintptr_t start = reinterpret_cast<uintptr_t>(target) &
+                                ~static_cast<uintptr_t>(page_size - 1);
+        const uintptr_t end = (reinterpret_cast<uintptr_t>(target) + size + page_size - 1) &
+                              ~static_cast<uintptr_t>(page_size - 1);
+        madvise(reinterpret_cast<void *>(start), end - start, MADV_DONTDUMP);
+    }
 
     int mprotect_ret = parallax_mprotect(target,(void *)((uint8_t *)target + size),target_prot);
     if(mprotect_ret == -1) {
@@ -423,9 +434,9 @@ int getRandom(int l, int r) {
 }
 
 PARALLAX_ENCRYPT void clinit(JNIEnv *env, jclass) {
-    int rand = getRandom(1, 100);
-    if(rand % 2 == 0) {
-        veritySignature(env);
+    veritySignature(env);
+    if ((g_shell_config.risk_check_flags & FLAG_DISABLE_ANTI_DEBUG) == 0) {
+        detectJavaDebugger(env);
     }
 }
 
@@ -534,6 +545,11 @@ PARALLAX_ENCRYPT static bool registerNativeMethods(JNIEnv *env) {
 PARALLAX_ENCRYPT void init_app(JNIEnv *env, jclass __unused) {
     DLOGD("called!");
     clock_t start = clock();
+
+    veritySignature(env);
+    if ((g_shell_config.risk_check_flags & FLAG_DISABLE_ANTI_DEBUG) == 0) {
+        detectJavaDebugger(env);
+    }
 
     void *package_addr = nullptr;
     size_t package_size = 0;
@@ -646,7 +662,6 @@ PARALLAX_ENCRYPT void read_shell_config(JNIEnv *env) {
             const char *buildKey = AY_OBFUSCATE(PARALLAX_BUILD_KEY);
             const char *keySep = AY_OBFUSCATE("_");
             std::string key_material = packageName + keySep + buildKey;
-            DLOGD("key material for config key: %s", key_material.c_str());
 
             auto aes_key = hmac_sha256(PARALLAX_UNKNOWN_DATA,
                                        16,
@@ -697,10 +712,8 @@ PARALLAX_ENCRYPT void read_shell_config(JNIEnv *env) {
                 return;
             }
 
+            std::string jsonStr(decrypted_data.begin(), decrypted_data.end());
             try {
-                std::string jsonStr = std::string(decrypted_data.begin(), decrypted_data.end());
-                DLOGD("raw config: '%s'", jsonStr.c_str());
-
                 nlohmann::json shell_config = nlohmann::json::parse(jsonStr);
                 const char *keyAppName = AY_OBFUSCATE("app_name");
                 const char *keyAcfName = AY_OBFUSCATE("acf_name");
@@ -727,6 +740,8 @@ PARALLAX_ENCRYPT void read_shell_config(JNIEnv *env) {
             } catch (const std::exception &e) {
                 DLOGE("parse shell config failed: %s", e.what());
             }
+            secure_zero(decrypted_data.data(), decrypted_data.size());
+            if (!jsonStr.empty()) secure_zero(jsonStr.data(), jsonStr.size());
         }
     }
 
@@ -744,6 +759,8 @@ void veritySignature(JNIEnv *env) {
 
 PARALLAX_ENCRYPT JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
 
+    hardenProcessAgainstDumping();
+
     JNIEnv *env = nullptr;
     if (vm->GetEnv((void **) &env, JNI_VERSION_1_6) != JNI_OK) {
         DLOGF("GetEnv() fail!");
@@ -751,6 +768,10 @@ PARALLAX_ENCRYPT JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
     }
 
     read_shell_config(env);
+
+    if ((g_shell_config.risk_check_flags & FLAG_DISABLE_ANTI_DEBUG) == 0) {
+        detectJavaDebugger(env);
+    }
 
     antiRisk();
 

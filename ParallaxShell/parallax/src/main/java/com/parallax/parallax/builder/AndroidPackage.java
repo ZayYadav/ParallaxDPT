@@ -373,7 +373,7 @@ public abstract class AndroidPackage {
         ShellConfig shellConfig = ShellConfig.getInstance();
         String json = shellConfig.toJson();
         String keyMaterial = packageName + "_" + buildKey;
-        LogUtils.info("Write config: " + json);
+        LogUtils.info("Writing authenticated Parallax configuration");
         byte[] masterKey = CryptoUtils.hmacSha256(key, keyMaterial);
         byte[] iv = KeyUtils.generateIV(key);
         byte[] secData = CryptoUtils.encryptAuthenticatedConfig(masterKey, iv, json.getBytes(StandardCharsets.UTF_8));
@@ -542,7 +542,7 @@ public abstract class AndroidPackage {
         }
     }
 
-    public void encryptSoFiles(String packageOutDir, byte[] rc4Key){
+    public void encryptSoFiles(String packageOutDir, byte[] encryptionKey){
         File obfDir = new File(getOutAssetsDir(packageOutDir).getAbsolutePath() + File.separator, Const.KEY_LIBS_DIR_NAME);
         File[] soAbiDirs = obfDir.listFiles();
         if(soAbiDirs == null) {
@@ -559,14 +559,14 @@ public abstract class AndroidPackage {
                 if(!soFile.getAbsolutePath().endsWith(".so")) {
                     continue;
                 }
-                encryptSoFile(soFile, rc4Key);
-                writeSoFileCryptKey(soFile, rc4Key);
+                encryptSoFile(soFile, encryptionKey);
+                writeSoFileEncryptionKey(soFile, encryptionKey);
             }
         }
 
     }
 
-    private void encryptSoFile(File soFile, byte[] rc4Key) {
+    private void encryptSoFile(File soFile, byte[] encryptionKey) {
         try (ReadElf readElf = new ReadElf(soFile)) {
             List<ReadElf.SectionHeader> sectionHeaders = readElf.getSectionHeaders();
             for (ReadElf.SectionHeader sectionHeader : sectionHeaders) {
@@ -583,19 +583,22 @@ public abstract class AndroidPackage {
                             (int)sectionHeader.getSize()
                     );
 
-                    byte[] enc = CryptoUtils.rc4Crypt(rc4Key, bitcode);
+                    byte[] counter = Arrays.copyOf(
+                            CryptoUtils.hmacSha256(encryptionKey, "Parallax/section/" + sectionHeader.getName()),
+                            16);
+                    byte[] enc = CryptoUtils.aesCtrCrypt(encryptionKey, counter, bitcode);
                     IoUtils.writeFile(soFile.getAbsolutePath(),enc,sectionHeader.getOffset());
                 }
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            throw new IllegalStateException("failed to encrypt native section in " + soFile, e);
         }
     }
 
-    private void writeSoFileCryptKey(File soFile, byte[] rc4key) {
+    private void writeSoFileEncryptionKey(File soFile, byte[] encryptionKey) {
         try (ReadElf readElf = new ReadElf(soFile)) {
-            ReadElf.Symbol symbol = readElf.getDynamicSymbol(Const.RC4_KEY_SYMBOL);
+            ReadElf.Symbol symbol = readElf.getDynamicSymbol(Const.ENCRYPTION_KEY_SYMBOL);
             if(symbol == null) {
                 LogUtils.warn("cannot find symbol in %s, no need write key", soFile.getName());
                 return;
@@ -610,10 +613,10 @@ public abstract class AndroidPackage {
             long symbolDataOffset = sectionHeader.getOffset() + value - sectionHeader.getAddr();
             LogUtils.info("write symbol data to %s(%s)", soFile.getName(), HexUtils.toHexString(symbolDataOffset));
 
-            IoUtils.writeFile(soFile.getAbsolutePath(),rc4key,symbolDataOffset);
+            IoUtils.writeFile(soFile.getAbsolutePath(),encryptionKey,symbolDataOffset);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            throw new IllegalStateException("failed to write native encryption key to " + soFile, e);
         }
     }
 

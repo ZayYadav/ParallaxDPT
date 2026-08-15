@@ -10,6 +10,7 @@ plugins {
 android {
     namespace 'com.parallax.parallax'
     compileSdk rootProject.ext.compileSdkVersion
+    ndkVersion rootProject.ext.ndkVersion
 
     buildFeatures {
         buildConfig = true
@@ -39,6 +40,9 @@ android {
     buildTypes {
         release {
             minifyEnabled true
+            shrinkResources true
+            debuggable false
+            jniDebuggable false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
 
@@ -149,7 +153,7 @@ def afterNativeBuildCopy(Project project, Map archMap, boolean debug) {
             + "src" + File.separator
             + "main" + File.separator
             + "assets" + File.separator
-            + "vwwwwwvwww")
+            + "Parallax")
 
     println("[" + project.name + "] " + sourceDir.absolutePath + " -> " + targetDir.absolutePath)
 

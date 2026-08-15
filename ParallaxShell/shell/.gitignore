@@ -1,1 +1,7 @@
 /build
+/src/main/cpp/external/bhook/
+/src/main/cpp/external/Dobby/
+/src/main/cpp/external/mbedtls/
+/src/main/cpp/external/minizip-ng/
+/src/main/cpp/external/native-dependencies.lock
+/src/main/assets/Parallax/

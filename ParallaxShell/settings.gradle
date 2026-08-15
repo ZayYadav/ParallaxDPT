@@ -21,4 +21,8 @@ dependencyResolutionManagement {
 
 rootProject.name = "parallax"
 include ':parallax'
-include ':shell'
+// Allows CLI/unit tests to run on machines without an Android SDK. CI and normal
+// builds do not set this property and therefore always include the shell module.
+if (!providers.gradleProperty("parallaxCliOnly").isPresent()) {
+    include ':shell'
+}

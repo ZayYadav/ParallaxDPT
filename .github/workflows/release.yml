@@ -11,30 +11,53 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
-      with:
-        submodules: recursive
+    - uses: actions/checkout@v4
     - name: set up JDK
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
         cache: gradle
+        cache-dependency-path: ParallaxShell/**/*.gradle*
     - name: Install ninja
       run: sudo apt-get update && sudo apt-get install ninja-build
-    - name: Setup CMake
-      uses: jwlawson/actions-setup-cmake@v1
-      with:
-       cmake-version: '3.31.1'
+    - name: Set up Android SDK
+      uses: android-actions/setup-android@v3
+    - name: Install Android build packages
+      run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
+    - name: Fetch native dependencies
+      run: ./scripts/bootstrap-native-deps.sh
+    - name: Verify native dependency checkout
+      run: |
+        test -f ParallaxShell/shell/src/main/cpp/external/mbedtls/include/mbedtls/aes.h
+        test -f ParallaxShell/shell/src/main/cpp/external/mbedtls/framework/CMakeLists.txt
+        test -f ParallaxShell/shell/src/main/cpp/external/minizip-ng/CMakeLists.txt
+        test -f ParallaxShell/shell/src/main/cpp/external/bhook/bytehook/src/main/cpp/CMakeLists.txt
+        test -f ParallaxShell/shell/src/main/cpp/external/Dobby/CMakeLists.txt
     - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+      run: chmod +x ParallaxShell/gradlew
     - name: Building project
-      run: ./gradlew build
+      run: ./gradlew --no-daemon --stacktrace build
+      working-directory: ParallaxShell
+    - name: Verify Parallax native library hardening
+      run: |
+        mapfile -t libraries < <(find ParallaxShell/executable/shell-files/libs -type f -name '*.so' | sort)
+        test "${#libraries[@]}" -eq 4
+        for library in "${libraries[@]}"; do
+          test "$(basename "$library")" = "libParallax.so"
+          readelf -lW "$library" | grep -q 'GNU_RELRO'
+          readelf -dW "$library" | grep -q 'BIND_NOW'
+          ! readelf -lW "$library" | grep 'GNU_STACK' | grep -q 'RWE'
+          ! readelf -nW "$library" | grep -q 'Build ID'
+        done
     - name: Get latest tag name
       id: get_latest_tag_name
-      run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
     - name: Compress files
-      run:  zip -r -q parallax-shell-${{ steps.get_latest_tag_name.outputs.VERSION }}.zip executable/
+      run: |
+        find ParallaxShell/executable -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > ParallaxShell/executable/SHA256SUMS
+        sha256sum --check ParallaxShell/executable/SHA256SUMS
+        zip -r -q parallax-shell-${{ steps.get_latest_tag_name.outputs.VERSION }}.zip ParallaxShell/executable/
     - uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"

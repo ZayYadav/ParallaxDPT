@@ -1,6 +1,6 @@
 # parallax-shell
 
-[![](https://img.shields.io/github/license/parallax/parallax-shell)](https://github.com/parallax/parallax-shell/blob/main/LICENSE) [![](https://img.shields.io/github/downloads/parallax/parallax-shell/total?color=blue)](https://github.com/parallax/parallax-shell/releases/latest) [![](https://img.shields.io/github/issues-raw/parallax/parallax-shell?color=red)](https://github.com/parallax/parallax-shell/issues) ![](https://img.shields.io/badge/Android-5.0%2B-brightgreen)
+[![](https://img.shields.io/github/license/ZayYadav/ParallaxDPT)](https://github.com/ZayYadav/ParallaxDPT/blob/main/LICENSE) [![](https://img.shields.io/github/downloads/ZayYadav/ParallaxDPT/total?color=blue)](https://github.com/ZayYadav/ParallaxDPT/releases/latest) [![](https://img.shields.io/github/issues-raw/ZayYadav/ParallaxDPT?color=red)](https://github.com/ZayYadav/ParallaxDPT/issues) ![](https://img.shields.io/badge/Android-5.0%2B-brightgreen)
 
 [English](./README.md) | 简体中文
 
@@ -10,7 +10,7 @@ parallax-shell 是一种将 dex 文件中的函数代码抽空，然后在程序
 
 ### 快速使用
 
-转到 [Releases](https://github.com/parallax/parallax-shell/releases/latest) 页面下载 `executable.zip`，解压，执行以下命令：
+转到 [Releases](https://github.com/ZayYadav/ParallaxDPT/releases/latest) 页面下载 `executable.zip`，解压，执行以下命令：
 
 ```shell
 java -jar parallax.jar -f /path/to/android-package-file
@@ -19,8 +19,10 @@ java -jar parallax.jar -f /path/to/android-package-file
 ### 手动编译
 
 ```shell
-git clone --recursive https://github.com/parallax/parallax-shell
-cd parallax-shell
+git clone https://github.com/ZayYadav/ParallaxDPT
+cd ParallaxDPT
+./scripts/bootstrap-native-deps.sh
+cd ParallaxShell
 ./gradlew assemble
 cd executable
 java -jar parallax.jar -f /path/to/android-package-file

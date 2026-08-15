@@ -5,11 +5,39 @@
 #include "parallax_crypto.h"
 #include <cstring>
 
+void secure_zero(void *data, size_t length) {
+    volatile uint8_t *bytes = static_cast<volatile uint8_t *>(data);
+    while (bytes != nullptr && length-- > 0) *bytes++ = 0;
+}
+
 bool constant_time_equal(const uint8_t *left, const uint8_t *right, size_t length) {
     if (left == nullptr || right == nullptr) return false;
     uint8_t difference = 0;
     for (size_t i = 0; i < length; ++i) difference |= left[i] ^ right[i];
     return difference == 0;
+}
+
+std::vector<uint8_t> aes_ctr_crypt(const uint8_t *key, const uint8_t *counter,
+                                   const uint8_t *input, size_t input_length) {
+    if (key == nullptr || counter == nullptr || input == nullptr || input_length == 0) return {};
+    std::vector<uint8_t> output(input_length);
+    uint8_t nonce_counter[16];
+    uint8_t stream_block[16] = {};
+    memcpy(nonce_counter, counter, sizeof(nonce_counter));
+    size_t offset = 0;
+    mbedtls_aes_context context;
+    mbedtls_aes_init(&context);
+    int result = mbedtls_aes_setkey_enc(&context, key, 128);
+    if (result == 0) {
+        result = mbedtls_aes_crypt_ctr(&context, input_length, &offset, nonce_counter,
+                                      stream_block, input, output.data());
+    }
+    mbedtls_aes_free(&context);
+    if (result != 0) {
+        secure_zero(output.data(), output.size());
+        return {};
+    }
+    return output;
 }
 
 std::vector<uint8_t> hmac_sha256(const uint8_t *key,

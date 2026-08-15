@@ -12,20 +12,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 public class CryptoUtils {
     private static final byte[] CONFIG_MAGIC = new byte[] {'P', 'A', 'R', '1'};
-    public static final String RC4Transform = "RC4";
     private static final String HMAC_SHA256 = "HmacSHA256";
-
-    public static byte[] rc4Crypt(byte[] key, byte[] in) {
-        try {
-            Cipher cipher = Cipher.getInstance(RC4Transform);
-            SecretKeySpec spec = new SecretKeySpec(key, RC4Transform);
-            cipher.init(Cipher.ENCRYPT_MODE,spec);
-            return cipher.doFinal(in);
-        } catch (Exception e) {
-        }
-
-        return null;
-    }
 
     /**
      * Derive AES-256 key by HMAC-SHA256(randomKey, UTF-8(keyMaterial)).
@@ -51,6 +38,9 @@ public class CryptoUtils {
     }
 
     public static byte[] aesEncrypt(byte[] key, byte[] iv, byte[] in) {
+        if (key == null || key.length != 32 || iv == null || iv.length != 16 || in == null) {
+            throw new IllegalArgumentException("AES-256-CBC requires a 256-bit key and 128-bit IV");
+        }
         try {
             Key secretKeySpec = new SecretKeySpec(key, "AES");
             Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
@@ -59,9 +49,22 @@ public class CryptoUtils {
             cipher.init(Cipher.ENCRYPT_MODE,secretKeySpec,ivParameterSpec);
             return cipher.doFinal(in);
         }
-        catch (Exception e){
+        catch (Exception e) {
+            throw new IllegalStateException("AES-CBC encryption failed", e);
         }
-        return null;
+    }
+
+    public static byte[] aesCtrCrypt(byte[] key, byte[] iv, byte[] input) {
+        if (key == null || key.length != 16 || iv == null || iv.length != 16 || input == null) {
+            throw new IllegalArgumentException("AES-CTR requires a 128-bit key and counter");
+        }
+        try {
+            Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, "AES"), new IvParameterSpec(iv));
+            return cipher.doFinal(input);
+        } catch (Exception e) {
+            throw new IllegalStateException("AES-CTR encryption failed", e);
+        }
     }
 
     /**

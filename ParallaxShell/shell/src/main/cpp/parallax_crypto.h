@@ -22,5 +22,8 @@ std::vector<uint8_t> aes_cbc_decrypt(const uint8_t *key,
                                      const uint8_t *iv,
                                      const uint8_t *in,
                                      size_t inlen);
+std::vector<uint8_t> aes_ctr_crypt(const uint8_t *key, const uint8_t *counter,
+                                   const uint8_t *input, size_t input_length);
 bool constant_time_equal(const uint8_t *left, const uint8_t *right, size_t length);
+void secure_zero(void *data, size_t length);
 #endif //PARALLAX_PARALLAX_CRYPTO_H

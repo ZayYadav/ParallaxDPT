@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.31.1)
+cmake_minimum_required(VERSION 3.22.1)
 
 project("parallax")
 
@@ -9,7 +9,6 @@ set(PARALLAX_NATIVE_SOURCE
         parallax_util.cpp
         parallax_risk.cpp
         parallax_crypto.cpp
-        rc4/rc4.c
         common/parallax_string.c
         dex/dex_file.cpp
         dex/MultiDexCode.cpp
@@ -31,6 +30,7 @@ set(MZ_ZSTD OFF CACHE BOOL "" FORCE)
 set(MZ_OPENSSL OFF CACHE BOOL "" FORCE)
 
 set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+set(ENABLE_PROGRAMS OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(external/mbedtls)
 include_directories(external/mbedtls/include)
@@ -73,9 +73,9 @@ if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
     message(WARNING "!!!WARNNING:opened log!!!")
 else()
     set(OPTIMIZATION_LEVEL "-Oz")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden ${OPTIMIZATION_LEVEL}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden ${OPTIMIZATION_LEVEL}")
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--exclude-libs,ALL")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden -ffunction-sections -fdata-sections -fno-ident -D_FORTIFY_SOURCE=2 ${OPTIMIZATION_LEVEL}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden -ffunction-sections -fdata-sections -fno-ident -D_FORTIFY_SOURCE=2 ${OPTIMIZATION_LEVEL}")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--exclude-libs,ALL -Wl,--gc-sections -Wl,--strip-all -Wl,--build-id=none")
     message("closed log & stripped so symbols")
 endif()
 
@@ -102,8 +102,15 @@ target_compile_options(${SO_NAME} PRIVATE
         -Wall
         -Wextra
         -Werror
+        -fstack-protector-strong
+        -fno-omit-frame-pointer
 )
-target_link_options(${SO_NAME} PRIVATE "-Wl,-z,max-page-size=16384")
+target_link_options(${SO_NAME} PRIVATE
+        "-Wl,-z,max-page-size=16384"
+        "-Wl,-z,relro,-z,now"
+        "-Wl,-z,noexecstack"
+        "-Wl,--no-undefined"
+)
 
 target_link_libraries(${SO_NAME}
             ${log-lib}

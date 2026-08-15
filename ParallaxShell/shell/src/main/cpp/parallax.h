@@ -25,8 +25,8 @@
 #include "common/parallax_log.h"
 #include "common/parallax_macro.h"
 #include "common/obfuscate.h"
-#include "rc4/rc4.h"
 #include "parallax_hook.h"
+#include "parallax_crypto.h"
 #include "dex/MultiDexCode.h"
 #include "dex/CodeItem.h"
 

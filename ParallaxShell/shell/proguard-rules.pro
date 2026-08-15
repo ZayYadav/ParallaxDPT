@@ -28,6 +28,8 @@
     public static int v(...);
 }
 -repackageclasses com.parallax.shell
+-allowaccessmodification
+-renamesourcefileattribute Parallax
 -keep class com.parallax.shell.JniBridge {
     native <methods>;
 }
