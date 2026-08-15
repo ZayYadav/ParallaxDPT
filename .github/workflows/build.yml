@@ -29,6 +29,12 @@ jobs:
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
       - name: Fetch native dependencies
         run: ./scripts/bootstrap-native-deps.sh
+      - name: Verify native dependency checkout
+        run: |
+          test -f ParallaxShell/shell/src/main/cpp/external/mbedtls/include/mbedtls/aes.h
+          test -f ParallaxShell/shell/src/main/cpp/external/minizip-ng/CMakeLists.txt
+          test -f ParallaxShell/shell/src/main/cpp/external/bhook/bytehook/src/main/cpp/CMakeLists.txt
+          test -f ParallaxShell/shell/src/main/cpp/external/Dobby/CMakeLists.txt
       - name: Grant execute permission for gradlew
         run: chmod +x ParallaxShell/gradlew
       - name: Run Parallax CLI unit tests

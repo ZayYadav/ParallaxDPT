@@ -12,13 +12,16 @@ clone_dependency() {
     printf '%s is already available\n' "$name"
     return
   fi
-  rm -rf "$destination"
+  local temporary="${destination}.tmp"
+  rm -rf "$destination" "$temporary"
   printf 'Fetching %s (%s)\n' "$name" "$ref"
-  git clone --depth 1 --branch "$ref" "$url" "$destination"
-  [[ -e "$destination/$marker" ]] || {
-    printf 'Missing expected file %s/%s\n' "$destination" "$marker" >&2
+  git clone --depth 1 --branch "$ref" "$url" "$temporary"
+  [[ -e "$temporary/$marker" ]] || {
+    printf 'Missing expected file %s/%s\n' "$temporary" "$marker" >&2
+    rm -rf "$temporary"
     exit 1
   }
+  mv "$temporary" "$destination"
 }
 
 clone_dependency minizip-ng https://github.com/zlib-ng/minizip-ng.git 4.0.10 CMakeLists.txt
@@ -32,3 +35,11 @@ for dependency in minizip-ng mbedtls bhook Dobby; do
   printf '%s %s\n' "$dependency" "$(git -C "$EXTERNAL_DIR/$dependency" rev-parse HEAD)" >> "$LOCK_FILE"
 done
 cat "$LOCK_FILE"
+
+for required in \
+  "$EXTERNAL_DIR/mbedtls/include/mbedtls/aes.h" \
+  "$EXTERNAL_DIR/minizip-ng/CMakeLists.txt" \
+  "$EXTERNAL_DIR/bhook/bytehook/src/main/cpp/CMakeLists.txt" \
+  "$EXTERNAL_DIR/Dobby/CMakeLists.txt"; do
+  [[ -f "$required" ]] || { printf 'Native dependency validation failed: %s\n' "$required" >&2; exit 1; }
+done
