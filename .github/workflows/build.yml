@@ -33,6 +33,9 @@ jobs:
           cmake-version: '3.31.1'
       - name: Grant execute permission for gradlew
         run: chmod +x ParallaxShell/gradlew
+      - name: Run Parallax CLI unit tests
+        run: ./gradlew --no-daemon --stacktrace -PparallaxCliOnly :parallax:test
+        working-directory: ParallaxShell
       - name: Building project
         run: ./gradlew --no-daemon --stacktrace build
         working-directory: ParallaxShell

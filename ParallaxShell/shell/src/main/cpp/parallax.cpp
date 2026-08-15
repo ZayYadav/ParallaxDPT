@@ -343,7 +343,8 @@ void decrypt_section(const char* section_name, int temp_prot, int target_prot) {
     Elf_Off offset = shdr.sh_offset;
     Elf_Word size = shdr.sh_size;
 
-    DLOGD("section name: %s, offset: %p, size: %d", section_name, (uint8_t *)offset, size);
+    DLOGD("section name: %s, offset: %zu, size: %zu", section_name,
+          static_cast<size_t>(offset), static_cast<size_t>(size));
     void *target = (u_char *)info.dli_fbase + offset;
 
     int ret = parallax_mprotect(target, (void *)((uint8_t *)target + size), temp_prot);
@@ -355,9 +356,10 @@ void decrypt_section(const char* section_name, int temp_prot, int target_prot) {
     auto counter = hmac_sha256(PARALLAX_UNKNOWN_DATA, 16,
                                reinterpret_cast<const uint8_t *>(counter_material.data()),
                                counter_material.size());
+    if (counter.size() != 32) abort();
     auto bitcode = aes_ctr_crypt(PARALLAX_UNKNOWN_DATA, counter.data(),
                                  reinterpret_cast<const uint8_t *>(target), size);
-    if (counter.size() != 32 || bitcode.size() != size) abort();
+    if (bitcode.size() != size) abort();
     memcpy(target, bitcode.data(), size);
     secure_zero(bitcode.data(), bitcode.size());
     secure_zero(counter.data(), counter.size());

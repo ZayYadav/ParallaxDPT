@@ -592,7 +592,7 @@ public abstract class AndroidPackage {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            throw new IllegalStateException("failed to encrypt native section in " + soFile, e);
         }
     }
 
@@ -616,7 +616,7 @@ public abstract class AndroidPackage {
             IoUtils.writeFile(soFile.getAbsolutePath(),encryptionKey,symbolDataOffset);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            throw new IllegalStateException("failed to write native encryption key to " + soFile, e);
         }
     }
 

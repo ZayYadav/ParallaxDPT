@@ -38,6 +38,9 @@ public class CryptoUtils {
     }
 
     public static byte[] aesEncrypt(byte[] key, byte[] iv, byte[] in) {
+        if (key == null || key.length != 32 || iv == null || iv.length != 16 || in == null) {
+            throw new IllegalArgumentException("AES-256-CBC requires a 256-bit key and 128-bit IV");
+        }
         try {
             Key secretKeySpec = new SecretKeySpec(key, "AES");
             Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
@@ -46,9 +49,9 @@ public class CryptoUtils {
             cipher.init(Cipher.ENCRYPT_MODE,secretKeySpec,ivParameterSpec);
             return cipher.doFinal(in);
         }
-        catch (Exception e){
+        catch (Exception e) {
+            throw new IllegalStateException("AES-CBC encryption failed", e);
         }
-        return null;
     }
 
     public static byte[] aesCtrCrypt(byte[] key, byte[] iv, byte[] input) {
