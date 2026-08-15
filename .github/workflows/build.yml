@@ -51,7 +51,7 @@ jobs:
           for library in "${libraries[@]}"; do
             test "$(basename "$library")" = "libParallax.so"
             readelf -lW "$library" | grep -q 'GNU_RELRO'
-            readelf -dW "$library" | grep -q '(BIND_NOW)'
+            readelf -dW "$library" | grep -q 'BIND_NOW'
             ! readelf -lW "$library" | grep 'GNU_STACK' | grep -q 'RWE'
             ! readelf -nW "$library" | grep -q 'Build ID'
           done
