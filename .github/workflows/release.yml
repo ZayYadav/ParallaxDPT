@@ -30,6 +30,7 @@ jobs:
     - name: Verify native dependency checkout
       run: |
         test -f ParallaxShell/shell/src/main/cpp/external/mbedtls/include/mbedtls/aes.h
+        test -f ParallaxShell/shell/src/main/cpp/external/mbedtls/framework/CMakeLists.txt
         test -f ParallaxShell/shell/src/main/cpp/external/minizip-ng/CMakeLists.txt
         test -f ParallaxShell/shell/src/main/cpp/external/bhook/bytehook/src/main/cpp/CMakeLists.txt
         test -f ParallaxShell/shell/src/main/cpp/external/Dobby/CMakeLists.txt
