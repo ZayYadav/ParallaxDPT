@@ -3,43 +3,80 @@ name: Parallax build and integrity checks
 on:
   workflow_dispatch:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: set up JDK
+
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          java-version: "17"
+          distribution: "temurin"
           cache: gradle
-          cache-dependency-path: ParallaxShell/**/*.gradle*
+          cache-dependency-path: |
+            ParallaxShell/**/*.gradle
+            ParallaxShell/**/*.gradle.kts
+            ParallaxShell/gradle/wrapper/gradle-wrapper.properties
 
-      - name: Install ninja
-        run: sudo apt-get update && sudo apt-get install ninja-build
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build
+
       - name: Setup CMake
         uses: jwlawson/actions-setup-cmake@v1
         with:
-          cmake-version: '3.31.1'
-      - name: Grant execute permission for gradlew
-        run: chmod +x ParallaxShell/gradlew
-      - name: Building project
-        run: ./gradlew build
-        working-directory: ParallaxShell
-      - name: Generate SHA-256 checksums
+          cmake-version: "3.31.1"
+
+      - name: Check tool versions
         run: |
-          find ParallaxShell/executable -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > ParallaxShell/executable/SHA256SUMS
+          java -version
+          javac -version
+          cmake --version
+          ninja --version
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+        working-directory: ParallaxShell
+
+      - name: Clean Gradle build
+        run: ./gradlew clean
+        working-directory: ParallaxShell
+
+      - name: Build project
+        run: ./gradlew build --stacktrace --warning-mode all
+        working-directory: ParallaxShell
+
+      - name: Generate SHA-256 checksums
+        shell: bash
+        run: |
+          set -e
+
+          mkdir -p ParallaxShell/executable
+
+          find ParallaxShell/executable \
+            -type f \
+            ! -name SHA256SUMS \
+            -print0 |
+            sort -z |
+            xargs -0 sha256sum \
+            > ParallaxShell/executable/SHA256SUMS
+
           sha256sum --check ParallaxShell/executable/SHA256SUMS
+
       - name: Upload Parallax artifacts
         uses: actions/upload-artifact@v4
         with:
           name: parallax-${{ github.sha }}
           path: ParallaxShell/executable/
+          if-no-files-found: error
