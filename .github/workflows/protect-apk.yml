@@ -1,0 +1,244 @@
+name: DPT protect and original-sign APK
+
+on:
+  workflow_call:
+    inputs:
+      source_artifact:
+        description: GitHub Actions artifact containing exactly one signed APK
+        required: true
+        type: string
+      output_artifact:
+        description: Artifact name for the protected and re-signed APK
+        required: false
+        default: dpt-protected-apk
+        type: string
+      dpt_ref:
+        description: ParallaxDPT ref used to build the protector
+        required: false
+        default: main
+        type: string
+      smaller:
+        description: Enable ParallaxDPT smaller-output mode
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        required: true
+      ANDROID_KEYSTORE_PASSWORD:
+        required: true
+      ANDROID_KEY_ALIAS:
+        required: true
+      ANDROID_KEY_PASSWORD:
+        required: true
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  protect:
+    name: DPT protect, restore signer, verify
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+    steps:
+      - name: Download source APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.source_artifact }}
+          path: input-apk
+
+      - name: Checkout ParallaxDPT
+        uses: actions/checkout@v4
+        with:
+          repository: ZayYadav/ParallaxDPT
+          ref: ${{ inputs.dpt_ref }}
+          path: dpt
+          submodules: recursive
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: dpt/ParallaxShell/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android build tools and native build prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ninja-build
+          sdkmanager --install \
+            'platforms;android-36' \
+            'build-tools;36.0.0'
+
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v1
+        with:
+          cmake-version: '3.31.1'
+
+      - name: Build ParallaxDPT protector
+        working-directory: dpt/ParallaxShell
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew clean --no-daemon
+          ./gradlew build --no-daemon --stacktrace
+          test -f executable/parallax.jar
+          test -d executable/shell-files
+          java -jar executable/parallax.jar --version
+
+      - name: Resolve source APK and original signer
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' APK_FILES < <(find input-apk -type f -name '*.apk' -print0)
+          if [ "${#APK_FILES[@]}" -ne 1 ]; then
+            echo "Expected exactly one APK in artifact '${{ inputs.source_artifact }}', found ${#APK_FILES[@]}." >&2
+            exit 1
+          fi
+
+          SOURCE_APK="${APK_FILES[0]}"
+          APKSIGNER="${ANDROID_HOME}/build-tools/36.0.0/apksigner"
+          "$APKSIGNER" verify --verbose "$SOURCE_APK"
+          ORIGINAL_SIGNER=$("$APKSIGNER" verify --print-certs "$SOURCE_APK" \
+            | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' \
+            | head -n 1 \
+            | tr -d ':' \
+            | tr '[:upper:]' '[:lower:]')
+          if [ -z "$ORIGINAL_SIGNER" ]; then
+            echo 'Unable to resolve the original APK signing certificate SHA-256.' >&2
+            exit 1
+          fi
+
+          echo "source_apk=$SOURCE_APK" >> "$GITHUB_OUTPUT"
+          echo "original_signer=$ORIGINAL_SIGNER" >> "$GITHUB_OUTPUT"
+          echo "Original signer SHA-256: $ORIGINAL_SIGNER"
+
+      - name: Verify configured keystore matches original signer
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          KEYSTORE="$RUNNER_TEMP/original-signing-key.jks"
+          trap 'rm -f "$KEYSTORE"' EXIT
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          test -s "$KEYSTORE"
+
+          KEYSTORE_SIGNER=$(keytool -list -v \
+            -keystore "$KEYSTORE" \
+            -alias "$ANDROID_KEY_ALIAS" \
+            -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+            | sed -n 's/^[[:space:]]*SHA256: //p' \
+            | head -n 1 \
+            | tr -d ':' \
+            | tr '[:upper:]' '[:lower:]')
+
+          if [ -z "$KEYSTORE_SIGNER" ]; then
+            echo 'Unable to read SHA-256 certificate digest from configured keystore.' >&2
+            exit 1
+          fi
+          if [ "$KEYSTORE_SIGNER" != '${{ steps.source.outputs.original_signer }}' ]; then
+            echo 'Configured signing key does not match the original APK signer; refusing to change app identity.' >&2
+            echo "Original:  ${{ steps.source.outputs.original_signer }}" >&2
+            echo "Keystore: $KEYSTORE_SIGNER" >&2
+            exit 1
+          fi
+
+      - name: Protect APK with ParallaxDPT
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_APK='${{ steps.source.outputs.source_apk }}'
+          UNSIGNED_PROTECTED="$RUNNER_TEMP/dpt-protected-unsigned.apk"
+
+          DPT_ARGS=(
+            --package-file "$SOURCE_APK"
+            --output "$UNSIGNED_PROTECTED"
+            --no-sign
+            --disable-frida-detect
+            --disable-crc-detect
+            --disable-anti-debug
+          )
+          if [ '${{ inputs.smaller }}' = 'true' ]; then
+            DPT_ARGS+=(--smaller)
+          fi
+
+          java -jar dpt/ParallaxShell/executable/parallax.jar "${DPT_ARGS[@]}"
+          test -s "$UNSIGNED_PROTECTED"
+          unzip -tqq "$UNSIGNED_PROTECTED"
+
+          mkdir -p protected-output
+          echo "UNSIGNED_PROTECTED=$UNSIGNED_PROTECTED" >> "$GITHUB_ENV"
+
+      - name: Align and sign protected APK with original key
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          KEYSTORE="$RUNNER_TEMP/original-signing-key.jks"
+          ALIGNED_APK="$RUNNER_TEMP/dpt-protected-aligned.apk"
+          FINAL_APK="protected-output/app-dpt-protected.apk"
+          trap 'rm -f "$KEYSTORE" "$ALIGNED_APK"' EXIT
+
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          test -s "$KEYSTORE"
+
+          ZIPALIGN="${ANDROID_HOME}/build-tools/36.0.0/zipalign"
+          APKSIGNER="${ANDROID_HOME}/build-tools/36.0.0/apksigner"
+
+          "$ZIPALIGN" -f 4 "$UNSIGNED_PROTECTED" "$ALIGNED_APK"
+          "$APKSIGNER" sign \
+            --ks "$KEYSTORE" \
+            --ks-key-alias "$ANDROID_KEY_ALIAS" \
+            --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
+            --key-pass env:ANDROID_KEY_PASSWORD \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out "$FINAL_APK" \
+            "$ALIGNED_APK"
+
+          "$ZIPALIGN" -c -v 4 "$FINAL_APK" >/dev/null
+          "$APKSIGNER" verify --verbose "$FINAL_APK"
+
+          FINAL_SIGNER=$("$APKSIGNER" verify --print-certs "$FINAL_APK" \
+            | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' \
+            | head -n 1 \
+            | tr -d ':' \
+            | tr '[:upper:]' '[:lower:]')
+
+          if [ "$FINAL_SIGNER" != '${{ steps.source.outputs.original_signer }}' ]; then
+            echo 'Protected APK signer changed unexpectedly.' >&2
+            exit 1
+          fi
+
+          {
+            echo "source_artifact=${{ inputs.source_artifact }}"
+            echo "dpt_ref=${{ inputs.dpt_ref }}"
+            echo "dpt_smaller=${{ inputs.smaller }}"
+            echo "original_signer_sha256=${{ steps.source.outputs.original_signer }}"
+            echo "final_signer_sha256=$FINAL_SIGNER"
+            sha256sum '${{ steps.source.outputs.source_apk }}' "$FINAL_APK"
+          } | tee protected-output/PROTECTION_INFO.txt
+
+      - name: Upload DPT-protected APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.output_artifact }}
+          path: protected-output/
+          if-no-files-found: error
+          retention-days: 30
