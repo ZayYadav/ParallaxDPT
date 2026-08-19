@@ -44,6 +44,10 @@ jobs:
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
       ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      DPT_MINIZIP_REF: dc8531deb704715fa57268d5e144f9eed7c8af66
+      DPT_BHOOK_REF: a8bd254f6e53022b65136f40d10ae3763b6ef8ad
+      DPT_DOBBY_REF: f2f8a6a825d2c43aea598012b0dc8685eb6f651a
+      DPT_MBEDTLS_REF: 068ff080b369adfac81509f9b57b2afabaf82dc5
 
     steps:
       - name: Download source APK artifact
@@ -60,7 +64,7 @@ jobs:
           path: dpt
           submodules: recursive
 
-      - name: Bootstrap native DPT dependencies
+      - name: Bootstrap pinned native DPT dependencies
         id: native_deps
         shell: bash
         run: |
@@ -68,23 +72,28 @@ jobs:
           EXTERNAL="$GITHUB_WORKSPACE/dpt/ParallaxShell/shell/src/main/cpp/external"
           mkdir -p "$EXTERNAL"
 
-          clone_dep() {
+          checkout_dep() {
             local name="$1"
             local url="$2"
+            local ref="$3"
             local target="$EXTERNAL/$name"
             rm -rf "$target"
-            git clone --depth 1 --recurse-submodules --shallow-submodules "$url" "$target"
+            git clone --filter=blob:none --no-checkout "$url" "$target"
+            git -C "$target" fetch --depth 1 origin "$ref"
+            git -C "$target" checkout --detach FETCH_HEAD
+            git -C "$target" submodule update --init --recursive --depth 1
             git -C "$target" rev-parse HEAD
           }
 
-          MINIZIP_SHA=$(clone_dep minizip-ng https://github.com/zlib-ng/minizip-ng)
-          BHOOK_SHA=$(clone_dep bhook https://github.com/bytedance/bhook.git)
-          DOBBY_SHA=$(clone_dep Dobby https://github.com/luoyesiqiu/Dobby.git)
-          MBEDTLS_SHA=$(clone_dep mbedtls https://github.com/Mbed-TLS/mbedtls)
+          MINIZIP_SHA=$(checkout_dep minizip-ng https://github.com/zlib-ng/minizip-ng "$DPT_MINIZIP_REF")
+          BHOOK_SHA=$(checkout_dep bhook https://github.com/bytedance/bhook.git "$DPT_BHOOK_REF")
+          DOBBY_SHA=$(checkout_dep Dobby https://github.com/luoyesiqiu/Dobby.git "$DPT_DOBBY_REF")
+          MBEDTLS_SHA=$(checkout_dep mbedtls https://github.com/Mbed-TLS/mbedtls "$DPT_MBEDTLS_REF")
 
-          for required in minizip-ng bhook Dobby mbedtls; do
-            test -d "$EXTERNAL/$required/.git"
-          done
+          [ "$MINIZIP_SHA" = "$DPT_MINIZIP_REF" ]
+          [ "$BHOOK_SHA" = "$DPT_BHOOK_REF" ]
+          [ "$DOBBY_SHA" = "$DPT_DOBBY_REF" ]
+          [ "$MBEDTLS_SHA" = "$DPT_MBEDTLS_REF" ]
 
           {
             echo "minizip_sha=$MINIZIP_SHA"
@@ -112,7 +121,8 @@ jobs:
           sudo apt-get install -y ninja-build
           sdkmanager --install \
             'platforms;android-36' \
-            'build-tools;36.0.0'
+            'build-tools;36.0.0' \
+            'ndk;27.0.12077973'
 
       - name: Set up CMake
         uses: jwlawson/actions-setup-cmake@v1
@@ -123,13 +133,24 @@ jobs:
         working-directory: dpt/ParallaxShell
         shell: bash
         run: |
-          set -euo pipefail
+          set -o pipefail
+          mkdir -p "$GITHUB_WORKSPACE/dpt-ci-logs"
           chmod +x ./gradlew
           ./gradlew clean --no-daemon
-          ./gradlew build --no-daemon --stacktrace
+          ./gradlew build --no-daemon --stacktrace 2>&1 \
+            | tee "$GITHUB_WORKSPACE/dpt-ci-logs/gradle-build.log"
           test -f executable/parallax.jar
           test -d executable/shell-files
           java -jar executable/parallax.jar --version
+
+      - name: Upload DPT build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dpt-build-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dpt-ci-logs/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Resolve source APK and original signer
         id: source
