@@ -81,7 +81,9 @@ jobs:
             git clone --filter=blob:none --no-checkout "$url" "$target"
             git -C "$target" fetch --depth 1 origin "$ref"
             git -C "$target" checkout --detach FETCH_HEAD
-            git -C "$target" submodule update --init --recursive --depth 1
+            if [ "$name" != 'mbedtls' ]; then
+              git -C "$target" submodule update --init --recursive --depth 1
+            fi
             git -C "$target" rev-parse HEAD
           }
 
@@ -162,23 +164,13 @@ jobs:
             echo "Expected exactly one APK in artifact '${{ inputs.source_artifact }}', found ${#APK_FILES[@]}." >&2
             exit 1
           fi
-
           SOURCE_APK="${APK_FILES[0]}"
           APKSIGNER="${ANDROID_HOME}/build-tools/36.0.0/apksigner"
           "$APKSIGNER" verify --verbose "$SOURCE_APK"
-          ORIGINAL_SIGNER=$("$APKSIGNER" verify --print-certs "$SOURCE_APK" \
-            | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' \
-            | head -n 1 \
-            | tr -d ':' \
-            | tr '[:upper:]' '[:lower:]')
-          if [ -z "$ORIGINAL_SIGNER" ]; then
-            echo 'Unable to resolve the original APK signing certificate SHA-256.' >&2
-            exit 1
-          fi
-
+          ORIGINAL_SIGNER=$("$APKSIGNER" verify --print-certs "$SOURCE_APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          test -n "$ORIGINAL_SIGNER"
           echo "source_apk=$SOURCE_APK" >> "$GITHUB_OUTPUT"
           echo "original_signer=$ORIGINAL_SIGNER" >> "$GITHUB_OUTPUT"
-          echo "Original signer SHA-256: $ORIGINAL_SIGNER"
 
       - name: Verify configured keystore matches original signer
         shell: bash
@@ -190,24 +182,10 @@ jobs:
           trap 'rm -f "$KEYSTORE"' EXIT
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
           test -s "$KEYSTORE"
-
-          KEYSTORE_SIGNER=$(keytool -list -v \
-            -keystore "$KEYSTORE" \
-            -alias "$ANDROID_KEY_ALIAS" \
-            -storepass "$ANDROID_KEYSTORE_PASSWORD" \
-            | sed -n 's/^[[:space:]]*SHA256: //p' \
-            | head -n 1 \
-            | tr -d ':' \
-            | tr '[:upper:]' '[:lower:]')
-
-          if [ -z "$KEYSTORE_SIGNER" ]; then
-            echo 'Unable to read SHA-256 certificate digest from configured keystore.' >&2
-            exit 1
-          fi
+          KEYSTORE_SIGNER=$(keytool -list -v -keystore "$KEYSTORE" -alias "$ANDROID_KEY_ALIAS" -storepass "$ANDROID_KEYSTORE_PASSWORD" | sed -n 's/^[[:space:]]*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          test -n "$KEYSTORE_SIGNER"
           if [ "$KEYSTORE_SIGNER" != '${{ steps.source.outputs.original_signer }}' ]; then
             echo 'Configured signing key does not match the original APK signer; refusing to change app identity.' >&2
-            echo "Original:  ${{ steps.source.outputs.original_signer }}" >&2
-            echo "Keystore: $KEYSTORE_SIGNER" >&2
             exit 1
           fi
 
@@ -217,23 +195,11 @@ jobs:
           set -euo pipefail
           SOURCE_APK='${{ steps.source.outputs.source_apk }}'
           UNSIGNED_PROTECTED="$RUNNER_TEMP/dpt-protected-unsigned.apk"
-
-          DPT_ARGS=(
-            --package-file "$SOURCE_APK"
-            --output "$UNSIGNED_PROTECTED"
-            --no-sign
-            --disable-frida-detect
-            --disable-crc-detect
-            --disable-anti-debug
-          )
-          if [ '${{ inputs.smaller }}' = 'true' ]; then
-            DPT_ARGS+=(--smaller)
-          fi
-
+          DPT_ARGS=(--package-file "$SOURCE_APK" --output "$UNSIGNED_PROTECTED" --no-sign --disable-frida-detect --disable-crc-detect --disable-anti-debug)
+          if [ '${{ inputs.smaller }}' = 'true' ]; then DPT_ARGS+=(--smaller); fi
           java -jar dpt/ParallaxShell/executable/parallax.jar "${DPT_ARGS[@]}"
           test -s "$UNSIGNED_PROTECTED"
           unzip -tqq "$UNSIGNED_PROTECTED"
-
           mkdir -p protected-output
           echo "UNSIGNED_PROTECTED=$UNSIGNED_PROTECTED" >> "$GITHUB_ENV"
 
@@ -247,39 +213,15 @@ jobs:
           ALIGNED_APK="$RUNNER_TEMP/dpt-protected-aligned.apk"
           FINAL_APK="protected-output/app-dpt-protected.apk"
           trap 'rm -f "$KEYSTORE" "$ALIGNED_APK"' EXIT
-
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
-          test -s "$KEYSTORE"
-
           ZIPALIGN="${ANDROID_HOME}/build-tools/36.0.0/zipalign"
           APKSIGNER="${ANDROID_HOME}/build-tools/36.0.0/apksigner"
-
           "$ZIPALIGN" -f 4 "$UNSIGNED_PROTECTED" "$ALIGNED_APK"
-          "$APKSIGNER" sign \
-            --ks "$KEYSTORE" \
-            --ks-key-alias "$ANDROID_KEY_ALIAS" \
-            --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
-            --key-pass env:ANDROID_KEY_PASSWORD \
-            --v1-signing-enabled true \
-            --v2-signing-enabled true \
-            --v3-signing-enabled true \
-            --out "$FINAL_APK" \
-            "$ALIGNED_APK"
-
+          "$APKSIGNER" sign --ks "$KEYSTORE" --ks-key-alias "$ANDROID_KEY_ALIAS" --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out "$FINAL_APK" "$ALIGNED_APK"
           "$ZIPALIGN" -c -v 4 "$FINAL_APK" >/dev/null
           "$APKSIGNER" verify --verbose "$FINAL_APK"
-
-          FINAL_SIGNER=$("$APKSIGNER" verify --print-certs "$FINAL_APK" \
-            | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' \
-            | head -n 1 \
-            | tr -d ':' \
-            | tr '[:upper:]' '[:lower:]')
-
-          if [ "$FINAL_SIGNER" != '${{ steps.source.outputs.original_signer }}' ]; then
-            echo 'Protected APK signer changed unexpectedly.' >&2
-            exit 1
-          fi
-
+          FINAL_SIGNER=$("$APKSIGNER" verify --print-certs "$FINAL_APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          if [ "$FINAL_SIGNER" != '${{ steps.source.outputs.original_signer }}' ]; then echo 'Protected APK signer changed unexpectedly.' >&2; exit 1; fi
           {
             echo "source_artifact=${{ inputs.source_artifact }}"
             echo "dpt_ref=${{ inputs.dpt_ref }}"
