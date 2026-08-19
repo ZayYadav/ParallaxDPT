@@ -60,6 +60,39 @@ jobs:
           path: dpt
           submodules: recursive
 
+      - name: Bootstrap native DPT dependencies
+        id: native_deps
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXTERNAL="$GITHUB_WORKSPACE/dpt/ParallaxShell/shell/src/main/cpp/external"
+          mkdir -p "$EXTERNAL"
+
+          clone_dep() {
+            local name="$1"
+            local url="$2"
+            local target="$EXTERNAL/$name"
+            rm -rf "$target"
+            git clone --depth 1 --recurse-submodules --shallow-submodules "$url" "$target"
+            git -C "$target" rev-parse HEAD
+          }
+
+          MINIZIP_SHA=$(clone_dep minizip-ng https://github.com/zlib-ng/minizip-ng)
+          BHOOK_SHA=$(clone_dep bhook https://github.com/bytedance/bhook.git)
+          DOBBY_SHA=$(clone_dep Dobby https://github.com/luoyesiqiu/Dobby.git)
+          MBEDTLS_SHA=$(clone_dep mbedtls https://github.com/Mbed-TLS/mbedtls)
+
+          for required in minizip-ng bhook Dobby mbedtls; do
+            test -d "$EXTERNAL/$required/.git"
+          done
+
+          {
+            echo "minizip_sha=$MINIZIP_SHA"
+            echo "bhook_sha=$BHOOK_SHA"
+            echo "dobby_sha=$DOBBY_SHA"
+            echo "mbedtls_sha=$MBEDTLS_SHA"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -230,6 +263,10 @@ jobs:
             echo "source_artifact=${{ inputs.source_artifact }}"
             echo "dpt_ref=${{ inputs.dpt_ref }}"
             echo "dpt_smaller=${{ inputs.smaller }}"
+            echo "minizip_sha=${{ steps.native_deps.outputs.minizip_sha }}"
+            echo "bhook_sha=${{ steps.native_deps.outputs.bhook_sha }}"
+            echo "dobby_sha=${{ steps.native_deps.outputs.dobby_sha }}"
+            echo "mbedtls_sha=${{ steps.native_deps.outputs.mbedtls_sha }}"
             echo "original_signer_sha256=${{ steps.source.outputs.original_signer }}"
             echo "final_signer_sha256=$FINAL_SIGNER"
             sha256sum '${{ steps.source.outputs.source_apk }}' "$FINAL_APK"
