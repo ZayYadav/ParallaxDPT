@@ -35,6 +35,18 @@ set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/mbedtls)
 include_directories(external/mbedtls/include)
 
+# Mbed TLS exposes plain build-tree targets (for example `mbedcrypto`) in
+# current releases, while package-based consumers may see the namespaced
+# `MbedTLS::mbedcrypto` target. Support both so the in-tree dependency does not
+# silently depend on one upstream CMake packaging layout.
+if(TARGET MbedTLS::mbedcrypto)
+    set(PARALLAX_MBEDCRYPTO_TARGET MbedTLS::mbedcrypto)
+elseif(TARGET mbedcrypto)
+    set(PARALLAX_MBEDCRYPTO_TARGET mbedcrypto)
+else()
+    message(FATAL_ERROR "Mbed TLS crypto target was not created")
+endif()
+
 file(GLOB BHOOK_SOURCE external/bhook/bytehook/src/main/cpp/*.c)
 add_library(bytehook STATIC ${BHOOK_SOURCE})
 target_include_directories(bytehook PUBLIC
@@ -111,7 +123,7 @@ target_link_libraries(${SO_NAME}
             dobby
             bytehook
             ${android-lib}
-            MbedTLS::mbedcrypto
+            ${PARALLAX_MBEDCRYPTO_TARGET}
         )
 
 ENABLE_LANGUAGE(ASM)
