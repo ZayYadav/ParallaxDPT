@@ -3,34 +3,15 @@ name: DPT protect and original-sign APK
 on:
   workflow_call:
     inputs:
-      source_artifact:
-        description: GitHub Actions artifact containing exactly one signed APK
-        required: true
-        type: string
-      output_artifact:
-        description: Artifact name for the protected and re-signed APK
-        required: false
-        default: dpt-protected-apk
-        type: string
-      dpt_ref:
-        description: ParallaxDPT ref used to build the protector
-        required: false
-        default: main
-        type: string
-      smaller:
-        description: Enable ParallaxDPT smaller-output mode
-        required: false
-        default: false
-        type: boolean
+      source_artifact: { required: true, type: string }
+      output_artifact: { required: false, default: dpt-protected-apk, type: string }
+      dpt_ref: { required: false, default: main, type: string }
+      smaller: { required: false, default: false, type: boolean }
     secrets:
-      ANDROID_KEYSTORE_BASE64:
-        required: true
-      ANDROID_KEYSTORE_PASSWORD:
-        required: true
-      ANDROID_KEY_ALIAS:
-        required: true
-      ANDROID_KEY_PASSWORD:
-        required: true
+      ANDROID_KEYSTORE_BASE64: { required: true }
+      ANDROID_KEYSTORE_PASSWORD: { required: true }
+      ANDROID_KEY_ALIAS: { required: true }
+      ANDROID_KEY_PASSWORD: { required: true }
 
 permissions:
   actions: read
@@ -48,6 +29,7 @@ jobs:
       DPT_BHOOK_REF: 642257e470a3d80ebc3428ff1e3b2d195721b636
       DPT_DOBBY_REF: f2f8a6a825d2c43aea598012b0dc8685eb6f651a
       DPT_MBEDTLS_REF: 068ff080b369adfac81509f9b57b2afabaf82dc5
+      DPT_MBEDTLS_FRAMEWORK_REF: dde0c4a0e448a0552f18817dcea633bb851fd288
 
     steps:
       - name: Download source APK artifact
@@ -71,37 +53,40 @@ jobs:
           set -euo pipefail
           EXTERNAL="$GITHUB_WORKSPACE/dpt/ParallaxShell/shell/src/main/cpp/external"
           mkdir -p "$EXTERNAL"
-
           checkout_dep() {
-            local name="$1"
-            local url="$2"
-            local ref="$3"
-            local target="$EXTERNAL/$name"
+            local name="$1" url="$2" ref="$3" submodules="${4:-yes}" target="$EXTERNAL/$1"
             rm -rf "$target"
             git clone --filter=blob:none --no-checkout "$url" "$target"
             git -C "$target" fetch --depth 1 origin "$ref"
             git -C "$target" checkout --detach FETCH_HEAD
-            if [ "$name" != 'mbedtls' ]; then
-              git -C "$target" submodule update --init --recursive --depth 1
-            fi
+            if [ "$submodules" = yes ]; then git -C "$target" submodule update --init --recursive --depth 1; fi
             git -C "$target" rev-parse HEAD
           }
-
           MINIZIP_SHA=$(checkout_dep minizip-ng https://github.com/zlib-ng/minizip-ng "$DPT_MINIZIP_REF")
           BHOOK_SHA=$(checkout_dep bhook https://github.com/bytedance/bhook.git "$DPT_BHOOK_REF")
           DOBBY_SHA=$(checkout_dep Dobby https://github.com/luoyesiqiu/Dobby.git "$DPT_DOBBY_REF")
-          MBEDTLS_SHA=$(checkout_dep mbedtls https://github.com/Mbed-TLS/mbedtls "$DPT_MBEDTLS_REF")
+          MBEDTLS_SHA=$(checkout_dep mbedtls https://github.com/Mbed-TLS/mbedtls "$DPT_MBEDTLS_REF" no)
+
+          FRAMEWORK="$EXTERNAL/mbedtls/framework"
+          rm -rf "$FRAMEWORK"
+          git clone --filter=blob:none --no-checkout https://github.com/Mbed-TLS/mbedtls-framework "$FRAMEWORK"
+          git -C "$FRAMEWORK" fetch --depth 1 origin "$DPT_MBEDTLS_FRAMEWORK_REF"
+          git -C "$FRAMEWORK" checkout --detach FETCH_HEAD
+          FRAMEWORK_SHA=$(git -C "$FRAMEWORK" rev-parse HEAD)
 
           [ "$MINIZIP_SHA" = "$DPT_MINIZIP_REF" ]
           [ "$BHOOK_SHA" = "$DPT_BHOOK_REF" ]
           [ "$DOBBY_SHA" = "$DPT_DOBBY_REF" ]
           [ "$MBEDTLS_SHA" = "$DPT_MBEDTLS_REF" ]
+          [ "$FRAMEWORK_SHA" = "$DPT_MBEDTLS_FRAMEWORK_REF" ]
+          test -f "$FRAMEWORK/CMakeLists.txt"
 
           {
             echo "minizip_sha=$MINIZIP_SHA"
             echo "bhook_sha=$BHOOK_SHA"
             echo "dobby_sha=$DOBBY_SHA"
             echo "mbedtls_sha=$MBEDTLS_SHA"
+            echo "mbedtls_framework_sha=$FRAMEWORK_SHA"
           } >> "$GITHUB_OUTPUT"
 
       - name: Set up JDK 17
@@ -115,16 +100,13 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
 
-      - name: Install Android build tools and native build prerequisites
+      - name: Install Android build tools and native prerequisites
         shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y ninja-build
-          sdkmanager --install \
-            'platforms;android-36' \
-            'build-tools;36.0.0' \
-            'ndk;27.0.12077973'
+          sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0' 'ndk;27.0.12077973'
 
       - name: Set up CMake
         uses: jwlawson/actions-setup-cmake@v1
@@ -139,8 +121,7 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/dpt-ci-logs"
           chmod +x ./gradlew
           ./gradlew clean --no-daemon
-          ./gradlew build --no-daemon --stacktrace 2>&1 \
-            | tee "$GITHUB_WORKSPACE/dpt-ci-logs/gradle-build.log"
+          ./gradlew build --no-daemon --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/dpt-ci-logs/gradle-build.log"
           test -f executable/parallax.jar
           test -d executable/shell-files
           java -jar executable/parallax.jar --version
@@ -160,14 +141,11 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -d '' APK_FILES < <(find input-apk -type f -name '*.apk' -print0)
-          if [ "${#APK_FILES[@]}" -ne 1 ]; then
-            echo "Expected exactly one APK in artifact '${{ inputs.source_artifact }}', found ${#APK_FILES[@]}." >&2
-            exit 1
-          fi
+          [ "${#APK_FILES[@]}" -eq 1 ] || { echo 'Expected exactly one APK.' >&2; exit 1; }
           SOURCE_APK="${APK_FILES[0]}"
           APKSIGNER="${ANDROID_HOME}/build-tools/36.0.0/apksigner"
           "$APKSIGNER" verify --verbose "$SOURCE_APK"
-          ORIGINAL_SIGNER=$("$APKSIGNER" verify --print-certs "$SOURCE_APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          ORIGINAL_SIGNER=$("$APKSIGNER" verify --print-certs "$SOURCE_APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
           test -n "$ORIGINAL_SIGNER"
           echo "source_apk=$SOURCE_APK" >> "$GITHUB_OUTPUT"
           echo "original_signer=$ORIGINAL_SIGNER" >> "$GITHUB_OUTPUT"
@@ -181,13 +159,9 @@ jobs:
           KEYSTORE="$RUNNER_TEMP/original-signing-key.jks"
           trap 'rm -f "$KEYSTORE"' EXIT
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
-          test -s "$KEYSTORE"
-          KEYSTORE_SIGNER=$(keytool -list -v -keystore "$KEYSTORE" -alias "$ANDROID_KEY_ALIAS" -storepass "$ANDROID_KEYSTORE_PASSWORD" | sed -n 's/^[[:space:]]*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          KEYSTORE_SIGNER=$(keytool -list -v -keystore "$KEYSTORE" -alias "$ANDROID_KEY_ALIAS" -storepass "$ANDROID_KEYSTORE_PASSWORD" | sed -n 's/^[[:space:]]*SHA256: //p' | head -n1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
           test -n "$KEYSTORE_SIGNER"
-          if [ "$KEYSTORE_SIGNER" != '${{ steps.source.outputs.original_signer }}' ]; then
-            echo 'Configured signing key does not match the original APK signer; refusing to change app identity.' >&2
-            exit 1
-          fi
+          [ "$KEYSTORE_SIGNER" = '${{ steps.source.outputs.original_signer }}' ] || { echo 'Configured signing key does not match original APK signer.' >&2; exit 1; }
 
       - name: Protect APK with ParallaxDPT
         shell: bash
@@ -196,7 +170,7 @@ jobs:
           SOURCE_APK='${{ steps.source.outputs.source_apk }}'
           UNSIGNED_PROTECTED="$RUNNER_TEMP/dpt-protected-unsigned.apk"
           DPT_ARGS=(--package-file "$SOURCE_APK" --output "$UNSIGNED_PROTECTED" --no-sign --disable-frida-detect --disable-crc-detect --disable-anti-debug)
-          if [ '${{ inputs.smaller }}' = 'true' ]; then DPT_ARGS+=(--smaller); fi
+          if [ '${{ inputs.smaller }}' = true ]; then DPT_ARGS+=(--smaller); fi
           java -jar dpt/ParallaxShell/executable/parallax.jar "${DPT_ARGS[@]}"
           test -s "$UNSIGNED_PROTECTED"
           unzip -tqq "$UNSIGNED_PROTECTED"
@@ -220,8 +194,8 @@ jobs:
           "$APKSIGNER" sign --ks "$KEYSTORE" --ks-key-alias "$ANDROID_KEY_ALIAS" --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out "$FINAL_APK" "$ALIGNED_APK"
           "$ZIPALIGN" -c -v 4 "$FINAL_APK" >/dev/null
           "$APKSIGNER" verify --verbose "$FINAL_APK"
-          FINAL_SIGNER=$("$APKSIGNER" verify --print-certs "$FINAL_APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
-          if [ "$FINAL_SIGNER" != '${{ steps.source.outputs.original_signer }}' ]; then echo 'Protected APK signer changed unexpectedly.' >&2; exit 1; fi
+          FINAL_SIGNER=$("$APKSIGNER" verify --print-certs "$FINAL_APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          [ "$FINAL_SIGNER" = '${{ steps.source.outputs.original_signer }}' ] || { echo 'Protected APK signer changed unexpectedly.' >&2; exit 1; }
           {
             echo "source_artifact=${{ inputs.source_artifact }}"
             echo "dpt_ref=${{ inputs.dpt_ref }}"
@@ -230,6 +204,7 @@ jobs:
             echo "bhook_sha=${{ steps.native_deps.outputs.bhook_sha }}"
             echo "dobby_sha=${{ steps.native_deps.outputs.dobby_sha }}"
             echo "mbedtls_sha=${{ steps.native_deps.outputs.mbedtls_sha }}"
+            echo "mbedtls_framework_sha=${{ steps.native_deps.outputs.mbedtls_framework_sha }}"
             echo "original_signer_sha256=${{ steps.source.outputs.original_signer }}"
             echo "final_signer_sha256=$FINAL_SIGNER"
             sha256sum '${{ steps.source.outputs.source_apk }}' "$FINAL_APK"
