@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DPT_MINIZIP_REF: dc8531deb704715fa57268d5e144f9eed7c8af66
-      DPT_BHOOK_REF: a8bd254f6e53022b65136f40d10ae3763b6ef8ad
+      DPT_BHOOK_REF: 642257e470a3d80ebc3428ff1e3b2d195721b636
       DPT_DOBBY_REF: f2f8a6a825d2c43aea598012b0dc8685eb6f651a
       DPT_MBEDTLS_REF: 068ff080b369adfac81509f9b57b2afabaf82dc5
 
