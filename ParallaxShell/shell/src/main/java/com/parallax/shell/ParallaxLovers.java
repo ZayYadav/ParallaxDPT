@@ -38,12 +38,10 @@ public class ParallaxLovers extends AppComponentFactory {
     }
 
     private static boolean anyBlocked() {
-        return Global.sDeveloperBlocked || Global.sNativeBlocked || rootBlocked();
+        return ParallaxBhaiya.anyProtectionBlocked() || rootBlocked();
     }
 
-    private String getTargetClassName() {
-        return ParallaxJaRaha.rcf();
-    }
+    private String getTargetClassName() { return ParallaxJaRaha.rcf(); }
 
     private AppComponentFactory getTargetAppComponentFactory(ClassLoader appClassLoader) {
         if (sAppComponentFactory == null) {
@@ -53,8 +51,7 @@ public class ParallaxLovers extends AppComponentFactory {
                 try {
                     sAppComponentFactory = (AppComponentFactory) Class.forName(targetClassName, true, appClassLoader).newInstance();
                     return sAppComponentFactory;
-                } catch (Exception ignored) {
-                }
+                } catch (Exception ignored) {}
             }
         }
         return sAppComponentFactory;
@@ -63,19 +60,14 @@ public class ParallaxLovers extends AppComponentFactory {
     @Override
     public Activity instantiateActivity(@NonNull ClassLoader cl, @NonNull String className, Intent intent)
             throws ClassNotFoundException, IllegalAccessException, InstantiationException {
-        if (Global.sDeveloperBlocked || Global.sNativeBlocked) {
-            return new ParallaxKaBhaiJangu();
-        }
-        if (rootBlocked()) {
-            return new ParallaxHuMaalik();
-        }
+        if (ParallaxBhaiya.anyProtectionBlocked()) return new ParallaxKaBhaiJangu();
+        if (rootBlocked()) return new ParallaxHuMaalik();
         AppComponentFactory target = getTargetAppComponentFactory(cl);
         if (target != null) {
             try {
                 Method method = AppComponentFactory.class.getDeclaredMethod("instantiateActivity", ClassLoader.class, String.class, Intent.class);
                 return (Activity) method.invoke(target, cl, className, intent);
-            } catch (Exception ignored) {
-            }
+            } catch (Exception ignored) {}
         }
         return super.instantiateActivity(cl, className, intent);
     }
@@ -83,19 +75,13 @@ public class ParallaxLovers extends AppComponentFactory {
     @Override
     public Application instantiateApplication(@NonNull ClassLoader cl, @NonNull String className)
             throws ClassNotFoundException, IllegalAccessException, InstantiationException {
-        if (anyBlocked()) {
-            return super.instantiateApplication(cl, className);
-        }
+        if (anyBlocked()) return super.instantiateApplication(cl, className);
         if (!Global.sIsReplacedClassLoader) {
             ApplicationInfo info = EnvUtils.getApplicationInfo();
-            if (info == null) {
-                throw new NullPointerException("application info is null");
-            }
+            if (info == null) throw new NullPointerException("application info is null");
             FileUtils.unzipLibs(info.sourceDir, info.dataDir);
             ParallaxJaRaha.loadShellLibs(info.dataDir);
-            if (Global.sNativeBlocked) {
-                return super.instantiateApplication(cl, className);
-            }
+            if (anyBlocked()) return super.instantiateApplication(cl, className);
         }
         ParallaxJaRaha.ia();
         String applicationName = ParallaxJaRaha.rapn();
@@ -111,9 +97,7 @@ public class ParallaxLovers extends AppComponentFactory {
         if (target != null) {
             try {
                 Method method = target.getClass().getDeclaredMethod("instantiateApplication", ClassLoader.class, String.class);
-                if (!TextUtils.isEmpty(applicationName)) {
-                    return (Application) method.invoke(target, cl, applicationName);
-                }
+                if (!TextUtils.isEmpty(applicationName)) return (Application) method.invoke(target, cl, applicationName);
                 return (Application) method.invoke(target, cl, className);
             } catch (Exception e) {
                 Log.e(TAG, "instantiateApplication", e);
@@ -124,9 +108,7 @@ public class ParallaxLovers extends AppComponentFactory {
                 Class.forName(applicationName, false, cl);
             } catch (ClassNotFoundException e) {
                 ApplicationInfo info = EnvUtils.getApplicationInfo();
-                if (info != null) {
-                    applicationName = info.packageName + "." + applicationName;
-                }
+                if (info != null) applicationName = info.packageName + "." + applicationName;
             }
             return super.instantiateApplication(cl, applicationName);
         }
@@ -135,14 +117,10 @@ public class ParallaxLovers extends AppComponentFactory {
 
     @Override
     public ClassLoader instantiateClassLoader(@NonNull ClassLoader cl, @NonNull ApplicationInfo aInfo) {
-        if (anyBlocked()) {
-            return cl;
-        }
+        if (anyBlocked()) return cl;
         FileUtils.unzipLibs(aInfo.sourceDir, aInfo.dataDir);
         ParallaxJaRaha.loadShellLibs(aInfo.dataDir);
-        if (Global.sNativeBlocked) {
-            return cl;
-        }
+        if (anyBlocked()) return cl;
         ParallaxJaRaha.ia();
         AppComponentFactory target = getTargetAppComponentFactory(cl);
         ParallaxJaRaha.cbde(cl);
@@ -151,8 +129,7 @@ public class ParallaxLovers extends AppComponentFactory {
             try {
                 Method method = AppComponentFactory.class.getDeclaredMethod("instantiateClassLoader", ClassLoader.class, ApplicationInfo.class);
                 return (ClassLoader) method.invoke(target, cl, aInfo);
-            } catch (Exception ignored) {
-            }
+            } catch (Exception ignored) {}
         }
         return super.instantiateClassLoader(cl, aInfo);
     }
@@ -160,16 +137,13 @@ public class ParallaxLovers extends AppComponentFactory {
     @Override
     public BroadcastReceiver instantiateReceiver(@NonNull ClassLoader cl, @NonNull String className, Intent intent)
             throws ClassNotFoundException, IllegalAccessException, InstantiationException {
-        if (anyBlocked()) {
-            return new RootBlockedReceiver();
-        }
+        if (anyBlocked()) return new RootBlockedReceiver();
         AppComponentFactory target = getTargetAppComponentFactory(cl);
         if (target != null) {
             try {
                 Method method = AppComponentFactory.class.getDeclaredMethod("instantiateReceiver", ClassLoader.class, String.class, Intent.class);
                 return (BroadcastReceiver) method.invoke(target, cl, className, intent);
-            } catch (Exception ignored) {
-            }
+            } catch (Exception ignored) {}
         }
         return super.instantiateReceiver(cl, className, intent);
     }
@@ -177,16 +151,13 @@ public class ParallaxLovers extends AppComponentFactory {
     @Override
     public Service instantiateService(@NonNull ClassLoader cl, @NonNull String className, Intent intent)
             throws ClassNotFoundException, IllegalAccessException, InstantiationException {
-        if (anyBlocked()) {
-            return new RootBlockedService();
-        }
+        if (anyBlocked()) return new RootBlockedService();
         AppComponentFactory target = getTargetAppComponentFactory(cl);
         if (target != null) {
             try {
                 Method method = AppComponentFactory.class.getDeclaredMethod("instantiateService", ClassLoader.class, String.class, Intent.class);
                 return (Service) method.invoke(target, cl, className, intent);
-            } catch (Exception ignored) {
-            }
+            } catch (Exception ignored) {}
         }
         return super.instantiateService(cl, className, intent);
     }
@@ -194,22 +165,19 @@ public class ParallaxLovers extends AppComponentFactory {
     @Override
     public ContentProvider instantiateProvider(@NonNull ClassLoader cl, @NonNull String className)
             throws ClassNotFoundException, IllegalAccessException, InstantiationException {
-        if (anyBlocked()) {
-            return new RootBlockedProvider();
-        }
+        if (anyBlocked()) return new RootBlockedProvider();
         AppComponentFactory target = getTargetAppComponentFactory(cl);
         if (target != null) {
             try {
                 Method method = AppComponentFactory.class.getDeclaredMethod("instantiateProvider", ClassLoader.class, String.class);
                 return (ContentProvider) method.invoke(target, cl, className);
-            } catch (Exception ignored) {
-            }
+            } catch (Exception ignored) {}
         }
         return super.instantiateProvider(cl, className);
     }
 
     public static final class RootBlockedReceiver extends BroadcastReceiver {
-        @Override public void onReceive(Context context, Intent intent) { }
+        @Override public void onReceive(Context context, Intent intent) {}
     }
 
     public static final class RootBlockedService extends Service {

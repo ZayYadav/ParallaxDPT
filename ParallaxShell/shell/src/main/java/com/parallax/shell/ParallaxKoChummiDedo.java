@@ -4,7 +4,6 @@ import android.app.Application;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.os.Build;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -17,13 +16,11 @@ public class ParallaxKoChummiDedo extends Application {
     private Application realApplication = null;
 
     private static boolean blocked() {
-        return Global.sRootBlocked || Global.sDeveloperBlocked || Global.sNativeBlocked;
+        return Global.sRootBlocked || ParallaxBhaiya.anyProtectionBlocked();
     }
 
     private void replaceApplication() {
-        if (blocked()) {
-            return;
-        }
+        if (blocked()) return;
         if (Global.sNeedCalledApplication && !TextUtils.isEmpty(realApplicationName)) {
             realApplication = (Application) ParallaxJaRaha.ra(realApplicationName);
             Log.d(TAG, "applicationExchange: " + realApplicationName + ", realApplication: " + realApplication.getClass().getName());
@@ -37,18 +34,12 @@ public class ParallaxKoChummiDedo extends Application {
         super.onCreate();
         if (Global.sRootBlocked || ShellGuard.isRootedDevice()) {
             Global.sRootBlocked = true;
-            if (Build.VERSION.SDK_INT < 28) {
-                ShellGuard.installLegacyActivityBlocker(this);
-            }
+            ParallaxBhaiya.installRootActivityBlocker(this);
             return;
         }
-        if (Global.sDeveloperBlocked) {
-            if (Build.VERSION.SDK_INT < 28) {
-                ParallaxBhaiya.installLegacyActivityBlocker(this);
-            }
-            return;
-        }
-        if (Global.sNativeBlocked) {
+        ParallaxBhaiya.refreshJavaSecurityState(this);
+        if (ParallaxBhaiya.anyProtectionBlocked()) {
+            ParallaxBhaiya.installLegacyActivityBlocker(this);
             return;
         }
         Log.d(TAG, "parallax onCreate");
@@ -57,9 +48,7 @@ public class ParallaxKoChummiDedo extends Application {
 
     @Override
     public Context createPackageContext(String packageName, int flags) throws PackageManager.NameNotFoundException {
-        if (blocked()) {
-            return super.createPackageContext(packageName, flags);
-        }
+        if (blocked()) return super.createPackageContext(packageName, flags);
         Log.d(TAG, "createPackageContext: " + realApplicationName);
         if (!TextUtils.isEmpty(realApplicationName)) {
             replaceApplication();
@@ -70,12 +59,8 @@ public class ParallaxKoChummiDedo extends Application {
 
     @Override
     public String getPackageName() {
-        if (blocked()) {
-            return super.getPackageName();
-        }
-        if (!TextUtils.isEmpty(realApplicationName)) {
-            return "";
-        }
+        if (blocked()) return super.getPackageName();
+        if (!TextUtils.isEmpty(realApplicationName)) return "";
         return super.getPackageName();
     }
 
@@ -84,24 +69,17 @@ public class ParallaxKoChummiDedo extends Application {
         super.attachBaseContext(base);
 
         Global.sRootBlocked = ShellGuard.isRootedDevice();
-        Global.sDeveloperBlocked = !Global.sRootBlocked && ParallaxBhaiya.shouldBlockDeveloperMode(base);
+        if (!Global.sRootBlocked) ParallaxBhaiya.refreshJavaSecurityState(base);
 
         Log.d(TAG, "parallax attachBaseContext classloader = " + base.getClassLoader());
-
-        if (Global.sRootBlocked || Global.sDeveloperBlocked || Global.sNativeBlocked) {
-            return;
-        }
+        if (blocked()) return;
 
         if (!Global.sIsReplacedClassLoader) {
             ApplicationInfo applicationInfo = base.getApplicationInfo();
-            if (applicationInfo == null) {
-                throw new NullPointerException("application info is null");
-            }
+            if (applicationInfo == null) throw new NullPointerException("application info is null");
             FileUtils.unzipLibs(applicationInfo.sourceDir, applicationInfo.dataDir);
             ParallaxJaRaha.loadShellLibs(applicationInfo.dataDir);
-            if (Global.sNativeBlocked) {
-                return;
-            }
+            if (blocked()) return;
             Log.d(TAG, "ParallaxKoChummiDedo init");
             ParallaxJaRaha.ia();
             ClassLoader targetClassLoader = base.getClassLoader();
@@ -109,8 +87,6 @@ public class ParallaxKoChummiDedo extends Application {
             Global.sIsReplacedClassLoader = true;
         }
 
-        if (!blocked()) {
-            realApplicationName = ParallaxJaRaha.rapn();
-        }
+        if (!blocked()) realApplicationName = ParallaxJaRaha.rapn();
     }
 }

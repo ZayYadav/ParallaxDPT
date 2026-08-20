@@ -25,6 +25,7 @@ public class ParallaxJaRaha {
     public static native void clinit();
 
     public static void loadShellLibs(String workspacePath) {
+        if (ParallaxBhaiya.anyProtectionBlocked()) return;
         final String[] allowLibNames = {Global.SHELL_SO_NAME};
         boolean loaded = false;
         try {
@@ -48,9 +49,15 @@ public class ParallaxJaRaha {
             Log.w(TAG, e);
         }
 
-        if (!loaded || !ParallaxBhaiya.nativeSecurityPassed()) {
+        if (!loaded) {
             Global.sNativeBlocked = true;
-            throw new SecurityException();
+            return;
+        }
+
+        if (!ParallaxBhaiya.refreshNativeSecurityState()
+                && !Global.sRuntimeBlocked
+                && !Global.sVirtualBlocked) {
+            Global.sNativeBlocked = true;
         }
     }
 }

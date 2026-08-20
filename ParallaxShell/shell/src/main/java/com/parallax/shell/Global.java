@@ -27,4 +27,10 @@ public class Global {
 
     @Keep
     public volatile static boolean sNativeBlocked = false;
+
+    @Keep
+    public volatile static boolean sVirtualBlocked = false;
+
+    @Keep
+    public volatile static boolean sRuntimeBlocked = false;
 }

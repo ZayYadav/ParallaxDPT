@@ -8,13 +8,13 @@ public class ParallaxHuMaalik extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        ParallaxHuYaarBhai.showRootDialog(this);
+        ParallaxBhaiya.showRootDialog(this);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        ParallaxHuYaarBhai.showRootDialog(this);
+        ParallaxBhaiya.showRootDialog(this);
     }
 
     @Override
