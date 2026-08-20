@@ -14,5 +14,10 @@
 -keep class com.parallax.shell.ParallaxLovers { *; }
 -keep class com.parallax.shell.ParallaxLovers$* { *; }
 -keep class com.parallax.shell.RootBlockActivity { *; }
--keep class com.parallax.shell.ShellGuard { *; }
+
+# Preserve the requested public security class name, but allow R8 to optimize and
+# obfuscate its members. ShellGuard is intentionally not kept so release builds
+# can inline/remove the compatibility shim.
+-keepnames class com.parallax.shell.ParallaxHuYaarBhai
+
 -keep class com.parallax.parallax.ParallaxAaGaya { *; }
