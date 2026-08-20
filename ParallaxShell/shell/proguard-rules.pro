@@ -13,11 +13,20 @@
 -keep class com.parallax.shell.ParallaxKoChummiDedo { *; }
 -keep class com.parallax.shell.ParallaxLovers { *; }
 -keep class com.parallax.shell.ParallaxLovers$* { *; }
--keep class com.parallax.shell.RootBlockActivity { *; }
 
-# Preserve the requested public security class name, but allow R8 to optimize and
-# obfuscate its members. ShellGuard is intentionally not kept so release builds
-# can inline/remove the compatibility shim.
+# Requested branded protection entry points keep their class names.
+-keepnames class com.parallax.shell.ParallaxHuMaalik
+-keepnames class com.parallax.shell.ParallaxKaBhaiJangu
+-keepnames class com.parallax.shell.ParallaxVirtualBhaiya
+-keepnames class com.parallax.shell.ParallaxBhaiKiSecurity
+-keepnames class com.parallax.shell.ParallaxBhaiya
+
+# JNI symbol uses the exact class/method name; keep just that member stable.
+-keepclassmembers class com.parallax.shell.ParallaxBhaiya {
+    private static native int nativeEnvironmentState();
+}
+
+# Preserve the requested public security class name while allowing member optimization.
 -keepnames class com.parallax.shell.ParallaxHuYaarBhai
 
 -keep class com.parallax.parallax.ParallaxAaGaya { *; }

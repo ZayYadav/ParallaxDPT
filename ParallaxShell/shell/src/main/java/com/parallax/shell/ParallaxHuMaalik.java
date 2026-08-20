@@ -3,22 +3,22 @@ package com.parallax.shell;
 import android.app.Activity;
 import android.os.Bundle;
 
-/** Activity substituted by the shell when a rooted environment is detected. */
-public class RootBlockActivity extends Activity {
+/** Root/system-modification block screen. */
+public class ParallaxHuMaalik extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        ShellGuard.showRootDialog(this);
+        ParallaxBhaiya.showProtectionDialog(this, ParallaxBhaiya.ROOT);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        ShellGuard.showRootDialog(this);
+        ParallaxBhaiya.showProtectionDialog(this, ParallaxBhaiya.ROOT);
     }
 
     @Override
     public void onBackPressed() {
-        // Root-block dialog is intentionally non-cancelable.
+        // Protection dialog is intentionally non-cancelable.
     }
 }

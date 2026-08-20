@@ -29,12 +29,8 @@ public class ParallaxLovers extends AppComponentFactory {
     private static final String TAG = "parallax " + ParallaxLovers.class.getSimpleName();
     private static AppComponentFactory sAppComponentFactory;
 
-    private static boolean blockRoot() {
-        if (Global.sRootBlocked || ShellGuard.isRootedDevice()) {
-            Global.sRootBlocked = true;
-            return true;
-        }
-        return false;
+    private static int blockReason() {
+        return ParallaxBhaiya.evaluateEarly();
     }
 
     private String getTargetClassName() {
@@ -59,8 +55,12 @@ public class ParallaxLovers extends AppComponentFactory {
     @Override
     public Activity instantiateActivity(@NonNull ClassLoader cl, @NonNull String className, Intent intent)
             throws ClassNotFoundException, IllegalAccessException, InstantiationException {
-        if (blockRoot()) {
-            return new RootBlockActivity();
+        int reason = Global.sProtectionBlockReason;
+        if (reason == ParallaxBhaiya.CLEAR) {
+            reason = blockReason();
+        }
+        if (reason != ParallaxBhaiya.CLEAR) {
+            return ParallaxBhaiya.newBlockedActivity(reason);
         }
         Log.d(TAG, "instantiateActivity() called with: cl = [" + cl + "], className = [" + className + "], intent = [" + intent + "]");
         AppComponentFactory targetAppComponentFactory = getTargetAppComponentFactory(cl);
@@ -77,7 +77,8 @@ public class ParallaxLovers extends AppComponentFactory {
     @Override
     public Application instantiateApplication(@NonNull ClassLoader cl, @NonNull String className)
             throws ClassNotFoundException, IllegalAccessException, InstantiationException {
-        if (blockRoot()) {
+        int reason = blockReason();
+        if (reason != ParallaxBhaiya.CLEAR) {
             return super.instantiateApplication(cl, className);
         }
         Log.d(TAG, "instantiateApplication() called with: cl = [" + cl + "], className = [" + className + "]");
@@ -89,6 +90,10 @@ public class ParallaxLovers extends AppComponentFactory {
             String sourceDir = EnvUtils.getApplicationInfo().sourceDir;
             FileUtils.unzipLibs(sourceDir, dataDir);
             ParallaxJaRaha.loadShellLibs(dataDir);
+            reason = ParallaxBhaiya.evaluateNativeAfterLoad();
+            if (reason != ParallaxBhaiya.CLEAR) {
+                return super.instantiateApplication(cl, className);
+            }
         }
         ParallaxJaRaha.ia();
 
@@ -131,12 +136,17 @@ public class ParallaxLovers extends AppComponentFactory {
 
     @Override
     public ClassLoader instantiateClassLoader(@NonNull ClassLoader cl, @NonNull ApplicationInfo aInfo) {
-        if (blockRoot()) {
+        int reason = blockReason();
+        if (reason != ParallaxBhaiya.CLEAR) {
             return cl;
         }
         Log.d(TAG, "instantiateClassLoader() called with: cl = [" + cl + "], aInfo = [" + aInfo + "]");
         FileUtils.unzipLibs(aInfo.sourceDir, aInfo.dataDir);
         ParallaxJaRaha.loadShellLibs(aInfo.dataDir);
+        reason = ParallaxBhaiya.evaluateNativeAfterLoad();
+        if (reason != ParallaxBhaiya.CLEAR) {
+            return cl;
+        }
         ParallaxJaRaha.ia();
 
         AppComponentFactory targetAppComponentFactory = getTargetAppComponentFactory(cl);
@@ -156,8 +166,8 @@ public class ParallaxLovers extends AppComponentFactory {
     @Override
     public BroadcastReceiver instantiateReceiver(@NonNull ClassLoader cl, @NonNull String className, Intent intent)
             throws ClassNotFoundException, IllegalAccessException, InstantiationException {
-        if (blockRoot()) {
-            return new RootBlockedReceiver();
+        if (blockReason() != ParallaxBhaiya.CLEAR) {
+            return new ParallaxBhaiReceiver();
         }
         AppComponentFactory targetAppComponentFactory = getTargetAppComponentFactory(cl);
         if (targetAppComponentFactory != null) {
@@ -173,8 +183,8 @@ public class ParallaxLovers extends AppComponentFactory {
     @Override
     public Service instantiateService(@NonNull ClassLoader cl, @NonNull String className, Intent intent)
             throws ClassNotFoundException, IllegalAccessException, InstantiationException {
-        if (blockRoot()) {
-            return new RootBlockedService();
+        if (blockReason() != ParallaxBhaiya.CLEAR) {
+            return new ParallaxBhaiService();
         }
         AppComponentFactory targetAppComponentFactory = getTargetAppComponentFactory(cl);
         if (targetAppComponentFactory != null) {
@@ -190,8 +200,8 @@ public class ParallaxLovers extends AppComponentFactory {
     @Override
     public ContentProvider instantiateProvider(@NonNull ClassLoader cl, @NonNull String className)
             throws ClassNotFoundException, IllegalAccessException, InstantiationException {
-        if (blockRoot()) {
-            return new RootBlockedProvider();
+        if (blockReason() != ParallaxBhaiya.CLEAR) {
+            return new ParallaxBhaiProvider();
         }
         AppComponentFactory targetAppComponentFactory = getTargetAppComponentFactory(cl);
         if (targetAppComponentFactory != null) {
@@ -204,14 +214,13 @@ public class ParallaxLovers extends AppComponentFactory {
         return super.instantiateProvider(cl, className);
     }
 
-    public static final class RootBlockedReceiver extends BroadcastReceiver {
+    public static final class ParallaxBhaiReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
-            // Intentionally no-op while the rooted environment is blocked.
         }
     }
 
-    public static final class RootBlockedService extends Service {
+    public static final class ParallaxBhaiService extends Service {
         @Override
         public IBinder onBind(Intent intent) {
             return null;
@@ -224,7 +233,7 @@ public class ParallaxLovers extends AppComponentFactory {
         }
     }
 
-    public static final class RootBlockedProvider extends ContentProvider {
+    public static final class ParallaxBhaiProvider extends ContentProvider {
         @Override
         public boolean onCreate() {
             return true;

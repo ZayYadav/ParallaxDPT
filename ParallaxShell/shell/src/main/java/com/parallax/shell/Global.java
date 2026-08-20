@@ -21,4 +21,7 @@ public class Global {
 
     @Keep
     public volatile static boolean sRootBlocked = false;
+
+    @Keep
+    public volatile static int sProtectionBlockReason = ParallaxBhaiya.CLEAR;
 }
