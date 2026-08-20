@@ -9,46 +9,39 @@ static def generateHexString() {
     return Long.toHexString(secureRandom.nextLong())
 }
 
-// Persist soName/parallaxBuildKey across Gradle invocations so parallax.jar and shell SO stay in sync.
-// Stored under the root build/ directory; clean deletes it so the next build regenerates.
+// Keep the requested public shell library name stable while preserving a per-build crypto key.
 def parallaxBuildIdsFile = file("${rootDir}/build/parallax-build-ids.properties")
 def parallaxBuildIds = new Properties()
 if (parallaxBuildIdsFile.exists()) {
     parallaxBuildIdsFile.withInputStream { parallaxBuildIds.load(it) }
 }
-def resolvedSoName = parallaxBuildIds.getProperty("soName")
+def resolvedSoName = "ParallaxLover"
 def resolvedBuildKey = parallaxBuildIds.getProperty("parallaxBuildKey")
-if (!resolvedSoName || resolvedSoName.isEmpty() || !resolvedBuildKey || resolvedBuildKey.isEmpty()) {
-    resolvedSoName = generateHexString()
+if (!resolvedBuildKey || resolvedBuildKey.isEmpty()) {
     resolvedBuildKey = generateHexString()
-    parallaxBuildIds.setProperty("soName", resolvedSoName)
-    parallaxBuildIds.setProperty("parallaxBuildKey", resolvedBuildKey)
-    parallaxBuildIdsFile.parentFile.mkdirs()
-    parallaxBuildIdsFile.withOutputStream { parallaxBuildIds.store(it, "parallax-shell build ids. Delete to regenerate.") }
 }
+parallaxBuildIds.setProperty("soName", resolvedSoName)
+parallaxBuildIds.setProperty("parallaxBuildKey", resolvedBuildKey)
+parallaxBuildIdsFile.parentFile.mkdirs()
+parallaxBuildIdsFile.withOutputStream { parallaxBuildIds.store(it, "parallax-shell build ids. Delete to regenerate.") }
 
 ext {
     soName = resolvedSoName
-    fullSoName = "lib${soName}.so"
+    fullSoName = "${soName}.so"
     shellPackageName = generateHexString()
     parallaxBuildKey = resolvedBuildKey
 
-    // Android SDK versions
     compileSdkVersion = 36
     minSdkVersion = 21
     targetSdkVersion = 36
 
-    // App version
     appVersionCode = 1
     appVersionName = "2.18.0"
 
-    // Java compatibility
     shellJavaVersion = JavaVersion.VERSION_1_8
     parallaxJavaVersion = JavaVersion.VERSION_11
 
-    // CMake
     cmakeVersion = "3.31.1"
-
 }
 
 subprojects { sub ->

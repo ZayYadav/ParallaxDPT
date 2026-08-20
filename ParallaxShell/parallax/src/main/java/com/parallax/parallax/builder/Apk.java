@@ -15,6 +15,7 @@ import com.wind.meditor.utils.NodeValue;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Locale;
 
 public class Apk extends AndroidPackage {
 
@@ -30,8 +31,18 @@ public class Apk extends AndroidPackage {
     }
 
     @Override
+    public String getProxyApplicationName() {
+        return String.format(Locale.US, "%s.%s", ShellConfig.getInstance().getShellPackageName(), "ParallaxKoChummiDedo");
+    }
+
+    @Override
+    public String getProxyComponentFactory() {
+        return String.format(Locale.US, "%s.%s", ShellConfig.getInstance().getShellPackageName(), "ParallaxLovers");
+    }
+
+    @Override
     protected File getOutAssetsDir(String packageDir) {
-        return FileUtils.getDir(packageDir,"assets");
+        return FileUtils.getDir(packageDir, "assets");
     }
 
     @Override
@@ -71,10 +82,7 @@ public class Apk extends AndroidPackage {
         commandList.add("true");
         commandList.add(packagePath);
 
-        int size = commandList.size();
-        String[] commandArray = new String[size];
-        commandArray = commandList.toArray(commandArray);
-
+        String[] commandArray = commandList.toArray(new String[0]);
         try {
             ApkSignerTool.main(commandArray);
         } catch (Exception e) {
@@ -88,59 +96,45 @@ public class Apk extends AndroidPackage {
     public void writeProxyAppName(String manifestDir) {
         String inManifestPath = manifestDir + File.separator + "AndroidManifest.xml";
         String outManifestPath = manifestDir + File.separator + "AndroidManifest_new.xml";
-        ApkManifestEditor.writeApplicationName(inManifestPath,outManifestPath, getProxyApplicationName());
-
+        ApkManifestEditor.writeApplicationName(inManifestPath, outManifestPath, getProxyApplicationName());
         File inManifestFile = new File(inManifestPath);
         File outManifestFile = new File(outManifestPath);
-
         inManifestFile.delete();
-
         outManifestFile.renameTo(inManifestFile);
     }
 
     @Override
-    public void writeProxyComponentFactoryName(String manifestDir){
+    public void writeProxyComponentFactoryName(String manifestDir) {
         String inManifestPath = manifestDir + File.separator + "AndroidManifest.xml";
         String outManifestPath = manifestDir + File.separator + "AndroidManifest_new.xml";
-        ApkManifestEditor.writeAppComponentFactory(inManifestPath,outManifestPath, getProxyComponentFactory());
-
+        ApkManifestEditor.writeAppComponentFactory(inManifestPath, outManifestPath, getProxyComponentFactory());
         File inManifestFile = new File(inManifestPath);
         File outManifestFile = new File(outManifestPath);
-
         inManifestFile.delete();
-
         outManifestFile.renameTo(inManifestFile);
     }
 
     @Override
-    public void setExtractNativeLibs(String manifestDir){
+    public void setExtractNativeLibs(String manifestDir) {
         String inManifestPath = manifestDir + File.separator + "AndroidManifest.xml";
         String outManifestPath = manifestDir + File.separator + "AndroidManifest_new.xml";
         ModificationProperty property = new ModificationProperty();
-
         property.addApplicationAttribute(new AttributeItem(NodeValue.Application.EXTRACTNATIVELIBS, "true"));
-
         FileProcesser.processManifestFile(inManifestPath, outManifestPath, property);
-
         File inManifestFile = new File(inManifestPath);
         File outManifestFile = new File(outManifestPath);
-
         inManifestFile.delete();
-
         outManifestFile.renameTo(inManifestFile);
     }
 
     @Override
-    public void setDebuggable(String manifestDir, boolean debuggable){
+    public void setDebuggable(String manifestDir, boolean debuggable) {
         String inManifestPath = manifestDir + File.separator + "AndroidManifest.xml";
         String outManifestPath = manifestDir + File.separator + "AndroidManifest_new.xml";
-        ApkManifestEditor.writeDebuggable(inManifestPath,outManifestPath, debuggable ? "true" : "false");
-
+        ApkManifestEditor.writeDebuggable(inManifestPath, outManifestPath, debuggable ? "true" : "false");
         File inManifestFile = new File(inManifestPath);
         File outManifestFile = new File(outManifestPath);
-
         inManifestFile.delete();
-
         outManifestFile.renameTo(inManifestFile);
     }
 
@@ -149,10 +143,8 @@ public class Apk extends AndroidPackage {
         String androidManifestFile = getManifestFilePath(packageOutDir);
         ShellConfig shellConfig = ShellConfig.getInstance();
         String appName = ApkManifestEditor.getApplicationName(androidManifestFile);
-
         appName = appName == null ? "" : appName;
         appName = appName.startsWith(".") ? appName.substring(1) : appName;
-
         shellConfig.setApplicationName(appName);
     }
 
@@ -160,49 +152,35 @@ public class Apk extends AndroidPackage {
     public void saveAppComponentFactory(String packageOutDir) {
         String androidManifestFile = getManifestFilePath(packageOutDir);
         ShellConfig shellConfig = ShellConfig.getInstance();
-
         String acfName = ApkManifestEditor.getAppComponentFactory(androidManifestFile);
-
         acfName = acfName == null ? "" : acfName;
-
         shellConfig.setAppComponentFactoryName(acfName);
     }
 
     private static void process(Apk apk) {
         byte[] encKey = KeyUtils.generateKey();
-
         File apkFile = new File(apk.getFilePath());
-        //apk extract path
         String apkMainProcessPath = apk.getWorkspaceDir().getAbsolutePath();
-
         LogUtils.info("Workspace path: " + apkMainProcessPath);
-
-        ZipUtils.unZip(apk.getFilePath(),apkMainProcessPath);
+        ZipUtils.unZip(apk.getFilePath(), apkMainProcessPath);
 
         String packageName = ApkManifestEditor.getPackageName(apkMainProcessPath + File.separator + "AndroidManifest.xml");
         apk.setPackageName(packageName);
         apk.resolveDefaultShellPackageName();
 
-        /*======================================*
-         * Process AndroidManifest.xml
-         *======================================*/
         apk.saveApplicationName(apkMainProcessPath);
         apk.writeProxyAppName(apkMainProcessPath);
-        if(apk.isAppComponentFactory()){
+        if (apk.isAppComponentFactory()) {
             apk.saveAppComponentFactory(apkMainProcessPath);
             apk.writeProxyComponentFactoryName(apkMainProcessPath);
         }
-        if(apk.isDebuggable()) {
+        if (apk.isDebuggable()) {
             LogUtils.info("Make apk debuggable.");
             apk.setDebuggable(apkMainProcessPath, true);
         }
         apk.setExtractNativeLibs(apkMainProcessPath);
 
-        /*======================================*
-         * Process .dex files
-         *======================================*/
         String assetsPath = apk.getOutAssetsDir(apkMainProcessPath).getAbsolutePath();
-
         apk.extractDexCode(apkMainProcessPath, assetsPath);
         apk.addJunkCodeDex(apkMainProcessPath);
         apk.compressDexFiles(apkMainProcessPath);
@@ -211,18 +189,9 @@ public class Apk extends AndroidPackage {
         apk.addKeepDexes(apkMainProcessPath);
         FileUtils.deleteRecurse(apk.getKeepDexTempDir(apkMainProcessPath));
 
-        /*======================================*
-         * Process .so files
-         *======================================*/
         apk.copyNativeLibs(apkMainProcessPath);
-
         apk.encryptSoFiles(apkMainProcessPath, encKey);
-
-        /*======================================*
-         * Build package
-         *======================================*/
         apk.writeConfig(apkMainProcessPath, encKey);
-
         apk.buildPackage(apkFile.getAbsolutePath(), apkMainProcessPath, FileUtils.getUserDir());
 
         File apkMainProcessFile = new File(apkMainProcessPath);
@@ -237,5 +206,4 @@ public class Apk extends AndroidPackage {
         super.protect();
         process(this);
     }
-
 }

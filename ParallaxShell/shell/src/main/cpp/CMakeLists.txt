@@ -9,6 +9,7 @@ set(PARALLAX_NATIVE_SOURCE
         parallax_util.cpp
         parallax_risk.cpp
         parallax_crypto.cpp
+        parallax_hardening.cpp
         rc4/rc4.c
         common/parallax_string.c
         dex/dex_file.cpp
@@ -29,16 +30,11 @@ set(PARALLAX_NATIVE_SOURCE
 set(MZ_LZMA OFF CACHE BOOL "" FORCE)
 set(MZ_ZSTD OFF CACHE BOOL "" FORCE)
 set(MZ_OPENSSL OFF CACHE BOOL "" FORCE)
-
 set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(external/mbedtls)
 include_directories(external/mbedtls/include)
 
-# Mbed TLS exposes plain build-tree targets (for example `mbedcrypto`) in
-# current releases, while package-based consumers may see the namespaced
-# `MbedTLS::mbedcrypto` target. Support both so the in-tree dependency does not
-# silently depend on one upstream CMake packaging layout.
 if(TARGET MbedTLS::mbedcrypto)
     set(PARALLAX_MBEDCRYPTO_TARGET MbedTLS::mbedcrypto)
 elseif(TARGET mbedcrypto)
@@ -67,16 +63,13 @@ if(NOT TARGET dobby)
     SET_OPTION(DOBBY_GENERATE_SHARED OFF)
     add_definitions(-DLOGGING_DISABLE)
     add_subdirectory(${DOBBY_DIR} dobby)
-    get_property(DOBBY_INCLUDE_DIRECTORIES
-            TARGET dobby
-            PROPERTY INCLUDE_DIRECTORIES)
+    get_property(DOBBY_INCLUDE_DIRECTORIES TARGET dobby PROPERTY INCLUDE_DIRECTORIES)
     include_directories(
             .
             ${DOBBY_INCLUDE_DIRECTORIES}
             $<TARGET_PROPERTY:dobby,INCLUDE_DIRECTORIES>
     )
 endif()
-
 
 add_definitions(-DDECRYPT_BITCODE)
 
@@ -99,13 +92,14 @@ endif()
 message("parallax build key: ${PARALLAX_BUILD_KEY}")
 
 add_compile_definitions(JNI_BRIDGE_NAME="${JNI_BRIDGE_NAME}")
-add_compile_definitions(SO_NAME="lib${SO_NAME}.so")
+add_compile_definitions(SO_NAME="${SO_NAME}.so")
 add_compile_definitions(PARALLAX_BUILD_KEY="${PARALLAX_BUILD_KEY}")
 
 include_directories(./ )
 include_directories(./common)
 
 add_library(${SO_NAME} SHARED ${PARALLAX_NATIVE_SOURCE})
+set_target_properties(${SO_NAME} PROPERTIES PREFIX "")
 
 find_library(log-lib log)
 find_library(android-lib android)
@@ -118,12 +112,12 @@ target_compile_options(${SO_NAME} PRIVATE
 target_link_options(${SO_NAME} PRIVATE "-Wl,-z,max-page-size=16384")
 
 target_link_libraries(${SO_NAME}
-            ${log-lib}
-            MINIZIP::minizip
-            dobby
-            bytehook
-            ${android-lib}
-            ${PARALLAX_MBEDCRYPTO_TARGET}
-        )
+        ${log-lib}
+        MINIZIP::minizip
+        dobby
+        bytehook
+        ${android-lib}
+        ${PARALLAX_MBEDCRYPTO_TARGET}
+)
 
 ENABLE_LANGUAGE(ASM)
