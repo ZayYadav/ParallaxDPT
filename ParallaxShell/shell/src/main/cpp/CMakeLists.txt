@@ -35,10 +35,6 @@ set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/mbedtls)
 include_directories(external/mbedtls/include)
 
-# Mbed TLS exposes plain build-tree targets (for example `mbedcrypto`) in
-# current releases, while package-based consumers may see the namespaced
-# `MbedTLS::mbedcrypto` target. Support both so the in-tree dependency does not
-# silently depend on one upstream CMake packaging layout.
 if(TARGET MbedTLS::mbedcrypto)
     set(PARALLAX_MBEDCRYPTO_TARGET MbedTLS::mbedcrypto)
 elseif(TARGET mbedcrypto)
@@ -77,7 +73,6 @@ if(NOT TARGET dobby)
     )
 endif()
 
-
 add_definitions(-DDECRYPT_BITCODE)
 
 if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
@@ -99,13 +94,14 @@ endif()
 message("parallax build key: ${PARALLAX_BUILD_KEY}")
 
 add_compile_definitions(JNI_BRIDGE_NAME="${JNI_BRIDGE_NAME}")
-add_compile_definitions(SO_NAME="lib${SO_NAME}.so")
+add_compile_definitions(SO_NAME="${SO_NAME}.so")
 add_compile_definitions(PARALLAX_BUILD_KEY="${PARALLAX_BUILD_KEY}")
 
 include_directories(./ )
 include_directories(./common)
 
 add_library(${SO_NAME} SHARED ${PARALLAX_NATIVE_SOURCE})
+set_target_properties(${SO_NAME} PROPERTIES PREFIX "")
 
 find_library(log-lib log)
 find_library(android-lib android)

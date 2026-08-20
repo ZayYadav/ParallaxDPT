@@ -30,6 +30,16 @@ public class Apk extends AndroidPackage {
     }
 
     @Override
+    public String getProxyApplicationName() {
+        return ShellConfig.getInstance().getShellPackageName() + ".ParallaxKoChummiDedo";
+    }
+
+    @Override
+    public String getProxyComponentFactory() {
+        return ShellConfig.getInstance().getShellPackageName() + ".ParallaxLovers";
+    }
+
+    @Override
     protected File getOutAssetsDir(String packageDir) {
         return FileUtils.getDir(packageDir,"assets");
     }
@@ -172,7 +182,6 @@ public class Apk extends AndroidPackage {
         byte[] encKey = KeyUtils.generateKey();
 
         File apkFile = new File(apk.getFilePath());
-        //apk extract path
         String apkMainProcessPath = apk.getWorkspaceDir().getAbsolutePath();
 
         LogUtils.info("Workspace path: " + apkMainProcessPath);
@@ -183,9 +192,6 @@ public class Apk extends AndroidPackage {
         apk.setPackageName(packageName);
         apk.resolveDefaultShellPackageName();
 
-        /*======================================*
-         * Process AndroidManifest.xml
-         *======================================*/
         apk.saveApplicationName(apkMainProcessPath);
         apk.writeProxyAppName(apkMainProcessPath);
         if(apk.isAppComponentFactory()){
@@ -198,9 +204,6 @@ public class Apk extends AndroidPackage {
         }
         apk.setExtractNativeLibs(apkMainProcessPath);
 
-        /*======================================*
-         * Process .dex files
-         *======================================*/
         String assetsPath = apk.getOutAssetsDir(apkMainProcessPath).getAbsolutePath();
 
         apk.extractDexCode(apkMainProcessPath, assetsPath);
@@ -211,16 +214,9 @@ public class Apk extends AndroidPackage {
         apk.addKeepDexes(apkMainProcessPath);
         FileUtils.deleteRecurse(apk.getKeepDexTempDir(apkMainProcessPath));
 
-        /*======================================*
-         * Process .so files
-         *======================================*/
         apk.copyNativeLibs(apkMainProcessPath);
-
         apk.encryptSoFiles(apkMainProcessPath, encKey);
 
-        /*======================================*
-         * Build package
-         *======================================*/
         apk.writeConfig(apkMainProcessPath, encKey);
 
         apk.buildPackage(apkFile.getAbsolutePath(), apkMainProcessPath, FileUtils.getUserDir());

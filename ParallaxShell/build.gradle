@@ -9,19 +9,16 @@ static def generateHexString() {
     return Long.toHexString(secureRandom.nextLong())
 }
 
-// Persist soName/parallaxBuildKey across Gradle invocations so parallax.jar and shell SO stay in sync.
-// Stored under the root build/ directory; clean deletes it so the next build regenerates.
+// Keep the encryption build key stable across the protector and native shell build.
 def parallaxBuildIdsFile = file("${rootDir}/build/parallax-build-ids.properties")
 def parallaxBuildIds = new Properties()
 if (parallaxBuildIdsFile.exists()) {
     parallaxBuildIdsFile.withInputStream { parallaxBuildIds.load(it) }
 }
-def resolvedSoName = parallaxBuildIds.getProperty("soName")
+def resolvedSoName = "ParallaxLover"
 def resolvedBuildKey = parallaxBuildIds.getProperty("parallaxBuildKey")
-if (!resolvedSoName || resolvedSoName.isEmpty() || !resolvedBuildKey || resolvedBuildKey.isEmpty()) {
-    resolvedSoName = generateHexString()
+if (!resolvedBuildKey || resolvedBuildKey.isEmpty()) {
     resolvedBuildKey = generateHexString()
-    parallaxBuildIds.setProperty("soName", resolvedSoName)
     parallaxBuildIds.setProperty("parallaxBuildKey", resolvedBuildKey)
     parallaxBuildIdsFile.parentFile.mkdirs()
     parallaxBuildIdsFile.withOutputStream { parallaxBuildIds.store(it, "parallax-shell build ids. Delete to regenerate.") }
@@ -29,7 +26,7 @@ if (!resolvedSoName || resolvedSoName.isEmpty() || !resolvedBuildKey || resolved
 
 ext {
     soName = resolvedSoName
-    fullSoName = "lib${soName}.so"
+    fullSoName = "${soName}.so"
     shellPackageName = generateHexString()
     parallaxBuildKey = resolvedBuildKey
 
