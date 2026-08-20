@@ -27,6 +27,16 @@ public class Aab extends AndroidPackage {
     }
 
     @Override
+    public String getProxyApplicationName() {
+        return ShellConfig.getInstance().getShellPackageName() + ".ParallaxKoChummiDedo";
+    }
+
+    @Override
+    public String getProxyComponentFactory() {
+        return ShellConfig.getInstance().getShellPackageName() + ".ParallaxLovers";
+    }
+
+    @Override
     public void writeProxyAppName(String manifestDir) {
         String inManifestPath = manifestDir + File.separator + "AndroidManifest.xml";
         String outManifestPath = manifestDir + File.separator + "AndroidManifest_new.xml";
@@ -36,7 +46,6 @@ public class Aab extends AndroidPackage {
         File outManifestFile = new File(outManifestPath);
 
         inManifestFile.delete();
-
         outManifestFile.renameTo(inManifestFile);
     }
 
@@ -50,13 +59,11 @@ public class Aab extends AndroidPackage {
         File outManifestFile = new File(outManifestPath);
 
         inManifestFile.delete();
-
         outManifestFile.renameTo(inManifestFile);
     }
 
     @Override
     public void setExtractNativeLibs(String manifestDir) {
-        // extractNativeLibs
         String inManifestPath = manifestDir + File.separator + "AndroidManifest.xml";
         String outManifestPath = manifestDir + File.separator + "AndroidManifest_new.xml";
         AabManifestEditor.writeApplicationExtractNativeLibs(inManifestPath, outManifestPath, "true");
@@ -65,7 +72,6 @@ public class Aab extends AndroidPackage {
         File outManifestFile = new File(outManifestPath);
 
         inManifestFile.delete();
-
         outManifestFile.renameTo(inManifestFile);
     }
 
@@ -79,7 +85,6 @@ public class Aab extends AndroidPackage {
         File outManifestFile = new File(outManifestPath);
 
         inManifestFile.delete();
-
         outManifestFile.renameTo(inManifestFile);
     }
 
@@ -87,7 +92,6 @@ public class Aab extends AndroidPackage {
     protected File getOutAssetsDir(String packageDir) {
         return FileUtils.getDir(getBaseDir(packageDir),"assets");
     }
-
 
     protected String getManifestFileDir(String packageOutDir) {
         return getBaseDir(packageOutDir) + File.separator + "manifest";
@@ -156,7 +160,6 @@ public class Aab extends AndroidPackage {
             processBuilder.redirectErrorStream(true);
             Process process = processBuilder.start();
             try (InputStream inputStream = process.getInputStream()) {
-                // Drain stdout/stderr to avoid pipe buffer deadlock
                 inputStream.readAllBytes();
             }
             int exitCode = process.waitFor();
@@ -172,26 +175,19 @@ public class Aab extends AndroidPackage {
         File aabFile = new File(aab.getFilePath());
         byte[] encKey = KeyUtils.generateKey();
 
-        //aab extract path
         String aabMainProcessPath = aab.getWorkspaceDir().getAbsolutePath();
 
         LogUtils.info("Workspace path: " + aabMainProcessPath);
 
         ZipUtils.unZip(aab.getFilePath(), aabMainProcessPath);
         String manifestFilePath = aab.getManifestFilePath(aabMainProcessPath);
-
         String manifestFileDir = aab.getManifestFileDir(aabMainProcessPath);
 
         String packageName = AabManifestEditor.getPackageName(manifestFilePath);
         aab.setPackageName(packageName);
         aab.resolveDefaultShellPackageName();
 
-        /*======================================*
-         * Process AndroidManifest.xml
-         *======================================*/
-        // Save application name to file
         aab.saveApplicationName(aabMainProcessPath);
-        // Write proxy application name to AndroidManifest.xml
         aab.writeProxyAppName(manifestFileDir);
 
         if(aab.isAppComponentFactory()){
@@ -205,11 +201,6 @@ public class Aab extends AndroidPackage {
         }
         aab.setExtractNativeLibs(manifestFileDir);
 
-
-        /*======================================*
-         * Process .dex files
-         *======================================*/
-        // Extract dex code
         String assetsPath = aab.getOutAssetsDir(aabMainProcessPath).getAbsolutePath();
         aab.extractDexCode(aabMainProcessPath, assetsPath);
         aab.addJunkCodeDex(aabMainProcessPath);
@@ -220,23 +211,13 @@ public class Aab extends AndroidPackage {
         File keepDexTempDir = aab.getKeepDexTempDir(aabMainProcessPath);
         FileUtils.deleteRecurse(keepDexTempDir);
 
-        /*======================================*
-         * Process .so files
-         *======================================*/
         aab.copyNativeLibs(aabMainProcessPath);
-
         aab.encryptSoFiles(aabMainProcessPath, encKey);
 
-        /*======================================*
-         * Build package
-         *======================================*/
-
         aab.writeConfig(aabMainProcessPath, encKey);
-
         aab.buildPackage(aabFile.getAbsolutePath(), aabMainProcessPath, FileUtils.getUserDir());
 
         File apkMainProcessFile = new File(aabMainProcessPath);
-
         if (apkMainProcessFile.exists()) {
             FileUtils.deleteRecurse(apkMainProcessFile);
         }
