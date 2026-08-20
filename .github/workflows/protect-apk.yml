@@ -169,7 +169,7 @@ jobs:
           set -euo pipefail
           SOURCE_APK='${{ steps.source.outputs.source_apk }}'
           UNSIGNED_PROTECTED="$RUNNER_TEMP/dpt-protected-unsigned.apk"
-          DPT_ARGS=(--package-file "$SOURCE_APK" --output "$UNSIGNED_PROTECTED" --no-sign --disable-frida-detect --disable-crc-detect --disable-anti-debug)
+          DPT_ARGS=(--package-file "$SOURCE_APK" --output "$UNSIGNED_PROTECTED" --no-sign)
           if [ '${{ inputs.smaller }}' = true ]; then DPT_ARGS+=(--smaller); fi
           java -jar dpt/ParallaxShell/executable/parallax.jar "${DPT_ARGS[@]}"
           test -s "$UNSIGNED_PROTECTED"
