@@ -1,6 +1,5 @@
 package com.parallax.shell;
 
-import android.content.Context;
 import android.util.Log;
 
 import androidx.annotation.Keep;
@@ -9,17 +8,16 @@ import com.parallax.shell.util.EnvUtils;
 
 import java.io.File;
 
-/**
- * Created by parallax
- */
+/** Native bridge used by the Parallax shell. */
 @Keep
-public class JniBridge {
-    private static final String TAG = "parallax_" + JniBridge.class.getSimpleName();
+public class ParallaxJaRaha {
+    private static final String TAG = "parallax_" + ParallaxJaRaha.class.getSimpleName();
+
     public static native void craoc(String applicationClassName);
     public static native void ia();
     public static native String rcf();
     public static native void cbde(ClassLoader targetClassLoader);
-    public static native void rde(ClassLoader classLoader,String elementName);
+    public static native void rde(ClassLoader classLoader, String elementName);
     public static native String gap();
     public static native String gdp();
     public static native Object ra(String originApplicationClassName);
@@ -32,22 +30,20 @@ public class JniBridge {
             String abiDirName = EnvUtils.getAbiDirName();
             File shellLibsFile = new File(workspacePath + File.separator + Global.LIB_DIR + File.separator + abiDirName);
             File[] files = shellLibsFile.listFiles();
-            if(files != null) {
-                for(File shellLibPath : files) {
+            if (files != null) {
+                for (File shellLibPath : files) {
                     String fullLibPath = shellLibPath.getAbsolutePath();
-                    for(String libName : allowLibNames) {
+                    for (String libName : allowLibNames) {
                         String libSuffix = File.separator + libName;
-                        if(fullLibPath.endsWith(libSuffix)) {
+                        if (fullLibPath.endsWith(libSuffix)) {
                             Log.d(TAG, "loadShellLibs: " + fullLibPath);
                             System.load(fullLibPath);
                         }
                     }
                 }
             }
-        }
-        catch (Throwable e){
-            Log.w(TAG,e);
+        } catch (Throwable e) {
+            Log.w(TAG, e);
         }
     }
-
 }
