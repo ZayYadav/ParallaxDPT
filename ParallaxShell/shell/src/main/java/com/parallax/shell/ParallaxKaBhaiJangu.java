@@ -3,22 +3,22 @@ package com.parallax.shell;
 import android.app.Activity;
 import android.os.Bundle;
 
-/** Activity substituted by the shell when a rooted environment is detected. */
-public class RootBlockActivity extends Activity {
+/** Developer-options / unauthorized-device block screen. */
+public class ParallaxKaBhaiJangu extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        ShellGuard.showRootDialog(this);
+        ParallaxBhaiya.showDeveloperDialog(this);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        ShellGuard.showRootDialog(this);
+        ParallaxBhaiya.showDeveloperDialog(this);
     }
 
     @Override
     public void onBackPressed() {
-        // Root-block dialog is intentionally non-cancelable.
+        // The authorization dialog is intentionally non-cancelable.
     }
 }

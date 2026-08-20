@@ -26,6 +26,7 @@ public class ParallaxJaRaha {
 
     public static void loadShellLibs(String workspacePath) {
         final String[] allowLibNames = {Global.SHELL_SO_NAME};
+        boolean loaded = false;
         try {
             String abiDirName = EnvUtils.getAbiDirName();
             File shellLibsFile = new File(workspacePath + File.separator + Global.LIB_DIR + File.separator + abiDirName);
@@ -38,12 +39,18 @@ public class ParallaxJaRaha {
                         if (fullLibPath.endsWith(libSuffix)) {
                             Log.d(TAG, "loadShellLibs: " + fullLibPath);
                             System.load(fullLibPath);
+                            loaded = true;
                         }
                     }
                 }
             }
         } catch (Throwable e) {
             Log.w(TAG, e);
+        }
+
+        if (!loaded || !ParallaxBhaiya.nativeSecurityPassed()) {
+            Global.sNativeBlocked = true;
+            throw new SecurityException();
         }
     }
 }

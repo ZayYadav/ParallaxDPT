@@ -7,6 +7,8 @@ plugins {
     id 'com.android.application'
 }
 
+def parallaxAuthorizedDeviceHashes = (project.findProperty("parallaxAuthorizedDeviceHashes") ?: "").toString().trim()
+
 android {
     namespace 'com.parallax.parallax'
     compileSdk rootProject.ext.compileSdkVersion
@@ -34,6 +36,7 @@ android {
         }
 
         buildConfigField "String", "SO_NAME", "\"${fullSoName}\""
+        buildConfigField "String", "AUTHORIZED_DEVICE_HASHES", JsonOutput.toJson(parallaxAuthorizedDeviceHashes)
     }
 
     buildTypes {

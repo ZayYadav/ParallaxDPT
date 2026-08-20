@@ -10,6 +10,7 @@ set(PARALLAX_NATIVE_SOURCE
         parallax_risk.cpp
         parallax_crypto.cpp
         parallax_hardening.cpp
+        parallax_device_guard.cpp
         rc4/rc4.c
         common/parallax_string.c
         dex/dex_file.cpp
@@ -109,6 +110,7 @@ target_compile_options(${SO_NAME} PRIVATE
         -Wextra
         -Werror
 )
+
 target_link_options(${SO_NAME} PRIVATE "-Wl,-z,max-page-size=16384")
 
 target_link_libraries(${SO_NAME}

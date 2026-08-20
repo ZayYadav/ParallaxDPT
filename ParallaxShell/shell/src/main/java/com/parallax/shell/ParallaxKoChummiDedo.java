@@ -16,8 +16,12 @@ public class ParallaxKoChummiDedo extends Application {
     private String realApplicationName = "";
     private Application realApplication = null;
 
+    private static boolean blocked() {
+        return Global.sRootBlocked || Global.sDeveloperBlocked || Global.sNativeBlocked;
+    }
+
     private void replaceApplication() {
-        if (Global.sRootBlocked) {
+        if (blocked()) {
             return;
         }
         if (Global.sNeedCalledApplication && !TextUtils.isEmpty(realApplicationName)) {
@@ -38,13 +42,22 @@ public class ParallaxKoChummiDedo extends Application {
             }
             return;
         }
+        if (Global.sDeveloperBlocked) {
+            if (Build.VERSION.SDK_INT < 28) {
+                ParallaxBhaiya.installLegacyActivityBlocker(this);
+            }
+            return;
+        }
+        if (Global.sNativeBlocked) {
+            return;
+        }
         Log.d(TAG, "parallax onCreate");
         replaceApplication();
     }
 
     @Override
     public Context createPackageContext(String packageName, int flags) throws PackageManager.NameNotFoundException {
-        if (Global.sRootBlocked) {
+        if (blocked()) {
             return super.createPackageContext(packageName, flags);
         }
         Log.d(TAG, "createPackageContext: " + realApplicationName);
@@ -57,7 +70,7 @@ public class ParallaxKoChummiDedo extends Application {
 
     @Override
     public String getPackageName() {
-        if (Global.sRootBlocked) {
+        if (blocked()) {
             return super.getPackageName();
         }
         if (!TextUtils.isEmpty(realApplicationName)) {
@@ -69,12 +82,13 @@ public class ParallaxKoChummiDedo extends Application {
     @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
+
         Global.sRootBlocked = ShellGuard.isRootedDevice();
+        Global.sDeveloperBlocked = !Global.sRootBlocked && ParallaxBhaiya.shouldBlockDeveloperMode(base);
+
         Log.d(TAG, "parallax attachBaseContext classloader = " + base.getClassLoader());
 
-        // Android 9+ is blocked before native shell loading through AppComponentFactory.
-        if (Global.sRootBlocked && Build.VERSION.SDK_INT >= 28) {
-            Log.w(TAG, ShellGuard.ROOT_MESSAGE);
+        if (Global.sRootBlocked || Global.sDeveloperBlocked || Global.sNativeBlocked) {
             return;
         }
 
@@ -85,6 +99,9 @@ public class ParallaxKoChummiDedo extends Application {
             }
             FileUtils.unzipLibs(applicationInfo.sourceDir, applicationInfo.dataDir);
             ParallaxJaRaha.loadShellLibs(applicationInfo.dataDir);
+            if (Global.sNativeBlocked) {
+                return;
+            }
             Log.d(TAG, "ParallaxKoChummiDedo init");
             ParallaxJaRaha.ia();
             ClassLoader targetClassLoader = base.getClassLoader();
@@ -92,7 +109,7 @@ public class ParallaxKoChummiDedo extends Application {
             Global.sIsReplacedClassLoader = true;
         }
 
-        if (!Global.sRootBlocked) {
+        if (!blocked()) {
             realApplicationName = ParallaxJaRaha.rapn();
         }
     }
