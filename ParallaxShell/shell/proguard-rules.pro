@@ -1,24 +1,6 @@
 # Add project specific ProGuard rules here.
 # You can control the set of applied configuration files using the
 # proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
-
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
-
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
-
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
 
 -assumenosideeffects class android.util.Log {
     public static int d(...);
@@ -27,7 +9,20 @@
     public static int i(...);
     public static int v(...);
 }
+
 -repackageclasses com.parallax.shell
--keep class com.parallax.shell.JniBridge {
+
+# JNI RegisterNatives depends on both this class name and its native method names.
+-keep class com.parallax.shell.ParallaxJaRaha {
     native <methods>;
+    public static void loadShellLibs(java.lang.String);
 }
+
+# These names are written into protected APK/AAB manifests and must survive R8.
+-keepnames class com.parallax.shell.ParallaxKoChummiDedo
+-keepnames class com.parallax.shell.ParallaxLovers
+-keepnames class com.parallax.shell.ParallaxAaGaya
+-keepnames class com.parallax.shell.SecurityGate
+
+# Security gate members are called from multiple early-startup paths.
+-keepclassmembers class com.parallax.shell.SecurityGate { *; }
