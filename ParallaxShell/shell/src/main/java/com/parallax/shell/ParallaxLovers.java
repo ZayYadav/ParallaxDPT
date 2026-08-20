@@ -7,8 +7,13 @@ import android.app.Application;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.ContentProvider;
+import android.content.ContentValues;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
+import android.database.Cursor;
+import android.net.Uri;
+import android.os.IBinder;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -23,6 +28,14 @@ import java.lang.reflect.Method;
 public class ParallaxLovers extends AppComponentFactory {
     private static final String TAG = "parallax " + ParallaxLovers.class.getSimpleName();
     private static AppComponentFactory sAppComponentFactory;
+
+    private static boolean blockRoot() {
+        if (Global.sRootBlocked || ShellGuard.isRootedDevice()) {
+            Global.sRootBlocked = true;
+            return true;
+        }
+        return false;
+    }
 
     private String getTargetClassName() {
         return ParallaxJaRaha.rcf();
@@ -46,6 +59,9 @@ public class ParallaxLovers extends AppComponentFactory {
     @Override
     public Activity instantiateActivity(@NonNull ClassLoader cl, @NonNull String className, Intent intent)
             throws ClassNotFoundException, IllegalAccessException, InstantiationException {
+        if (blockRoot()) {
+            return new RootBlockActivity();
+        }
         Log.d(TAG, "instantiateActivity() called with: cl = [" + cl + "], className = [" + className + "], intent = [" + intent + "]");
         AppComponentFactory targetAppComponentFactory = getTargetAppComponentFactory(cl);
         if (targetAppComponentFactory != null) {
@@ -61,6 +77,9 @@ public class ParallaxLovers extends AppComponentFactory {
     @Override
     public Application instantiateApplication(@NonNull ClassLoader cl, @NonNull String className)
             throws ClassNotFoundException, IllegalAccessException, InstantiationException {
+        if (blockRoot()) {
+            return super.instantiateApplication(cl, className);
+        }
         Log.d(TAG, "instantiateApplication() called with: cl = [" + cl + "], className = [" + className + "]");
         if (!Global.sIsReplacedClassLoader) {
             if (EnvUtils.getApplicationInfo() == null) {
@@ -88,7 +107,6 @@ public class ParallaxLovers extends AppComponentFactory {
         if (targetAppComponentFactory != null) {
             try {
                 Method method = targetAppComponentFactory.getClass().getDeclaredMethod("instantiateApplication", ClassLoader.class, String.class);
-                Log.d(TAG, "instantiateApplication target applicationName = " + applicationName);
                 if (!TextUtils.isEmpty(applicationName)) {
                     return (Application) method.invoke(targetAppComponentFactory, cl, applicationName);
                 }
@@ -113,6 +131,9 @@ public class ParallaxLovers extends AppComponentFactory {
 
     @Override
     public ClassLoader instantiateClassLoader(@NonNull ClassLoader cl, @NonNull ApplicationInfo aInfo) {
+        if (blockRoot()) {
+            return cl;
+        }
         Log.d(TAG, "instantiateClassLoader() called with: cl = [" + cl + "], aInfo = [" + aInfo + "]");
         FileUtils.unzipLibs(aInfo.sourceDir, aInfo.dataDir);
         ParallaxJaRaha.loadShellLibs(aInfo.dataDir);
@@ -135,6 +156,9 @@ public class ParallaxLovers extends AppComponentFactory {
     @Override
     public BroadcastReceiver instantiateReceiver(@NonNull ClassLoader cl, @NonNull String className, Intent intent)
             throws ClassNotFoundException, IllegalAccessException, InstantiationException {
+        if (blockRoot()) {
+            return new RootBlockedReceiver();
+        }
         AppComponentFactory targetAppComponentFactory = getTargetAppComponentFactory(cl);
         if (targetAppComponentFactory != null) {
             try {
@@ -149,6 +173,9 @@ public class ParallaxLovers extends AppComponentFactory {
     @Override
     public Service instantiateService(@NonNull ClassLoader cl, @NonNull String className, Intent intent)
             throws ClassNotFoundException, IllegalAccessException, InstantiationException {
+        if (blockRoot()) {
+            return new RootBlockedService();
+        }
         AppComponentFactory targetAppComponentFactory = getTargetAppComponentFactory(cl);
         if (targetAppComponentFactory != null) {
             try {
@@ -163,6 +190,9 @@ public class ParallaxLovers extends AppComponentFactory {
     @Override
     public ContentProvider instantiateProvider(@NonNull ClassLoader cl, @NonNull String className)
             throws ClassNotFoundException, IllegalAccessException, InstantiationException {
+        if (blockRoot()) {
+            return new RootBlockedProvider();
+        }
         AppComponentFactory targetAppComponentFactory = getTargetAppComponentFactory(cl);
         if (targetAppComponentFactory != null) {
             try {
@@ -172,5 +202,57 @@ public class ParallaxLovers extends AppComponentFactory {
             }
         }
         return super.instantiateProvider(cl, className);
+    }
+
+    public static final class RootBlockedReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // Intentionally no-op while the rooted environment is blocked.
+        }
+    }
+
+    public static final class RootBlockedService extends Service {
+        @Override
+        public IBinder onBind(Intent intent) {
+            return null;
+        }
+
+        @Override
+        public int onStartCommand(Intent intent, int flags, int startId) {
+            stopSelf(startId);
+            return START_NOT_STICKY;
+        }
+    }
+
+    public static final class RootBlockedProvider extends ContentProvider {
+        @Override
+        public boolean onCreate() {
+            return true;
+        }
+
+        @Override
+        public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder) {
+            return null;
+        }
+
+        @Override
+        public String getType(Uri uri) {
+            return null;
+        }
+
+        @Override
+        public Uri insert(Uri uri, ContentValues values) {
+            return null;
+        }
+
+        @Override
+        public int delete(Uri uri, String selection, String[] selectionArgs) {
+            return 0;
+        }
+
+        @Override
+        public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
+            return 0;
+        }
     }
 }

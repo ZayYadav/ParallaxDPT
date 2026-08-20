@@ -9,6 +9,7 @@ set(PARALLAX_NATIVE_SOURCE
         parallax_util.cpp
         parallax_risk.cpp
         parallax_crypto.cpp
+        parallax_hardening.cpp
         rc4/rc4.c
         common/parallax_string.c
         dex/dex_file.cpp
