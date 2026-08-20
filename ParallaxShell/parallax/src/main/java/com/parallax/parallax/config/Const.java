@@ -67,13 +67,13 @@ public class Const {
 
     public static final String RC4_KEY_SYMBOL = "PARALLAX_UNKNOWN_DATA";
 
-    public static final String KEY_SHELL_CONFIG_STORE_NAME = "d_shell_data_001";
+    public static final String KEY_SHELL_CONFIG_STORE_NAME = "ItsParallaxBaby";
     public static final String KEY_BUILD_KEY_FILE_NAME = "build-key";
     public static final String KEY_DEXES_STORE_NAME = "i11111i111.zip";
     public static final String KEY_DEXES_STORE_UNALIGNED_NAME = "i11111i111_unaligned.zip";
-    public static final String KEY_CODE_ITEM_STORE_NAME = "OoooooOooo";
-    public static final String KEY_LIBS_DIR_NAME = "vwwwwwvwww";
-    public static final String KEY_JNI_BASE_CLASS_NAME = "JniBridge";
+    public static final String KEY_CODE_ITEM_STORE_NAME = "Parallax.love";
+    public static final String KEY_LIBS_DIR_NAME = "ParallaxLoveU";
+    public static final String KEY_JNI_BASE_CLASS_NAME = "ParallaxJaRaha";
     public static final String DEFAULT_SHELL_PACKAGE_NAME = "com/parallax/shell";
     /** Auto shell package placeholder; resolved to "{appPackage}.shell" after package name is known. */
     public static final String SHELL_PACKAGE_NAME_AUTO = "<random>";
