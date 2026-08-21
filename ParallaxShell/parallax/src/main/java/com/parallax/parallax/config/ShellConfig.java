@@ -100,7 +100,12 @@ public class ShellConfig {
     }
 
     public void init(ShellConfig shellConfig) {
-        this.shellPackageName = StringUtils.isBlank(shellConfig.getShellPackageName()) ? Const.DEFAULT_SHELL_PACKAGE_NAME : shellConfig.getShellPackageName();
+        String requestedPackageName = shellConfig.getShellPackageName();
+        if (StringUtils.isBlank(requestedPackageName)
+                || Const.SHELL_PACKAGE_NAME_AUTO.equals(requestedPackageName)) {
+            requestedPackageName = Const.BRANDED_SHELL_PACKAGE_NAME;
+        }
+        this.shellPackageName = requestedPackageName;
         this.signatureConfig = shellConfig.getSignatureConfig();
         this.appSignSha256 = shellConfig.getAppSignSha256();
         this.riskCheckFlags = shellConfig.getRiskCheckFlags();
