@@ -10,6 +10,8 @@ import android.provider.Settings;
 
 import com.parallax.shell.util.EnvUtils;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Locale;
@@ -24,6 +26,7 @@ final class ParallaxBhaiya {
 
     private static final int NATIVE_TRACER = 1;
     private static final int NATIVE_VIRTUAL = 2;
+    private static final int NATIVE_HOOK_FRAMEWORK = 4;
 
     /*
      * Put SHA-256(ANDROID_ID) values here to authorize selected phones while
@@ -43,6 +46,7 @@ final class ParallaxBhaiya {
         }
         if (ParallaxHuYaarBhai.isRootedDevice()) return block(ROOT);
         if (isVirtualEnvironment()) return block(VIRTUAL);
+        if (isJavaHookEnvironment()) return block(DEBUG_OR_TAMPER);
         if (isDebuggerOrDebuggable()) return block(DEBUG_OR_TAMPER);
         return CLEAR;
     }
@@ -63,7 +67,9 @@ final class ParallaxBhaiya {
         try {
             int flags = nativeEnvironmentState();
             if ((flags & NATIVE_VIRTUAL) != 0) return block(VIRTUAL);
-            if ((flags & NATIVE_TRACER) != 0) return block(DEBUG_OR_TAMPER);
+            if ((flags & (NATIVE_TRACER | NATIVE_HOOK_FRAMEWORK)) != 0) {
+                return block(DEBUG_OR_TAMPER);
+            }
         } catch (Throwable ignored) {
         }
         return CLEAR;
@@ -139,6 +145,55 @@ final class ParallaxBhaiya {
         } catch (Throwable ignored) {
             return false;
         }
+    }
+
+    private static boolean isJavaHookEnvironment() {
+        return hasKnownHookClasses() || hasHookMarkerInMaps();
+    }
+
+    private static boolean hasKnownHookClasses() {
+        final String[] classes = {
+                ParallaxHuYaarBhai.z(101234567, 23, 152, 64, 45, 37, 241, 154, 234, 194, 196, 139, 73, 181, 192, 235, 178, 122, 101, 81, 145, 135, 194, 196, 156, 225, 173, 110, 165, 255, 145, 174, 13, 54, 166, 185),
+                ParallaxHuYaarBhai.z(202345678, 112, 50, 119, 89, 155, 243, 16, 40, 169, 109, 175, 210, 64, 85, 104, 183, 89, 24, 22, 36, 88, 215, 137, 72, 188, 238, 132, 15, 112, 75, 68, 186, 46, 91, 240, 190),
+                ParallaxHuYaarBhai.z(303456789, 217, 195, 34, 217, 242, 253, 144, 39, 158, 57, 204, 42, 239, 189, 249, 243, 110, 223, 220, 190, 253, 145, 46, 61, 111, 46),
+                ParallaxHuYaarBhai.z(404567890, 165, 30, 70, 88, 103, 51, 35, 13, 7, 115, 139, 247, 60, 99, 59, 182, 20, 190, 68, 95, 150, 36, 224, 227, 4, 97, 38),
+                ParallaxHuYaarBhai.z(505678901, 195, 172, 149, 102, 215, 30, 77, 2, 51, 42, 118, 183, 4, 121, 183, 163, 229, 180, 238, 20)
+        };
+        ClassLoader loader = ParallaxBhaiya.class.getClassLoader();
+        for (String name : classes) {
+            try {
+                Class.forName(name, false, loader);
+                return true;
+            } catch (Throwable ignored) {
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasHookMarkerInMaps() {
+        final String[] markers = {
+                ParallaxHuYaarBhai.z(707890123, 223, 78, 201, 92, 47, 59, 154, 94, 65, 219, 212),
+                ParallaxHuYaarBhai.z(808901234, 72, 80, 205, 61, 141, 146, 92, 239, 119, 3, 201, 229, 48, 20, 13),
+                ParallaxHuYaarBhai.z(909012345, 227, 131, 109, 245, 148, 111),
+                ParallaxHuYaarBhai.z(110123456, 157, 213, 111, 18, 154, 241, 101),
+                ParallaxHuYaarBhai.z(220234567, 107, 194, 17, 156),
+                ParallaxHuYaarBhai.z(330345678, 64, 214, 194, 55, 87, 80, 29),
+                ParallaxHuYaarBhai.z(440456789, 58, 196, 149, 175, 53, 251, 241, 7),
+                ParallaxHuYaarBhai.z(550567890, 172, 107, 40, 136, 49),
+                ParallaxHuYaarBhai.z(660678901, 49, 107, 54, 7)
+        };
+        try (BufferedReader reader = new BufferedReader(new FileReader(
+                ParallaxHuYaarBhai.z(606789012, 69, 162, 151, 37, 147, 199, 39, 167, 123, 199, 118, 78, 224, 248, 40)))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String value = lower(line);
+                for (String marker : markers) {
+                    if (value.contains(marker)) return true;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
     }
 
     private static boolean isVirtualEnvironment() {
